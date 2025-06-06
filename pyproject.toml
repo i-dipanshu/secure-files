@@ -1,0 +1,121 @@
+[project]
+name = "zkp-file-sharing"
+version = "0.1.0"
+description = "A secure file-sharing application using Zero-Knowledge Proof authentication"
+authors = [
+    {name = "Dipanshu",email = "medipansh@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    # FastAPI and ASGI server
+    "fastapi>=0.104.1",
+    "uvicorn[standard]>=0.24.0",
+    
+    # Database
+    "sqlalchemy>=2.0.23",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.0",
+    
+    # Storage
+    "minio>=7.2.0",
+    
+    # Authentication & Security
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    "python-multipart>=0.0.6",
+    
+    # ZKP Libraries (to be updated based on chosen implementation)
+    "pycryptodome>=3.19.0",
+    "cryptography>=41.0.7",
+    
+    # Data validation
+    "pydantic>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    
+    # HTTP client
+    "httpx>=0.25.2",
+    
+    # Utilities
+    "python-dotenv>=1.0.0",
+    "structlog>=23.2.0",
+    "typer>=0.9.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    # Testing
+    "pytest>=7.4.3",
+    "pytest-asyncio>=0.21.1",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.25.2",
+    
+    # Code quality
+    "black>=23.11.0",
+    "isort>=5.12.0",
+    "flake8>=6.1.0",
+    "mypy>=1.7.1",
+    
+    # Pre-commit hooks
+    "pre-commit>=3.6.0",
+    
+    # Development tools
+    "ipython>=8.17.2",
+    "rich>=13.7.0",
+]
+
+[project.scripts]
+zkp-server = "app.main:run_server"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "zkp-file-sharing"
+version = "0.1.0"
+description = "A secure file-sharing application using Zero-Knowledge Proof authentication"
+authors = ["Dipanshu <medipansh@gmail.com>"]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+[tool.mypy]
+python_version = "3.11"
+check_untyped_defs = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unused_configs = true
