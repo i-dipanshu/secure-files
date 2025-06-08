@@ -25,9 +25,11 @@ dependencies = [
     "passlib[bcrypt]>=1.7.4",
     "python-multipart>=0.0.6",
     
-    # ZKP Libraries (to be updated based on chosen implementation)
+    # ZKP Libraries (updated for compatibility)
     "pycryptodome>=3.19.0",
     "cryptography>=41.0.7",
+    "ecdsa>=0.18.0",
+    "requests>=2.32.0",
     
     # Data validation
     "pydantic>=2.5.0",
