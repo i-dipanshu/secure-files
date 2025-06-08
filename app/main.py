@@ -1,27 +1,27 @@
 """
-ZKP File Sharing API Main Application
+ZKP File Sharing API - Main Application
 
-This module contains the FastAPI application setup with middleware,
-routes, and error handling for the Zero-Knowledge Proof file sharing system.
+A secure file-sharing application using Zero-Knowledge Proof (ZKP) authentication
+that allows users to upload, share, and download files without revealing credentials.
 """
 
-import logging
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator
-
 import structlog
-from fastapi import FastAPI
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.core.config import get_settings
-from app.core.exceptions import setup_exception_handlers
+from app.core.exceptions import (
+    ZKPException, 
+    AuthenticationFailedException, 
+    UserNotFoundException,
+    ZKPVerificationFailedException
+)
+from app.models.database import init_db, close_db
 from app.api.auth import auth_router
-from app.api.users import users_router
-from app.api.files import files_router
 
-
-# Setup structured logging
+# Configure structured logging
 structlog.configure(
     processors=[
         structlog.stdlib.filter_by_level,
@@ -44,80 +44,179 @@ logger = structlog.get_logger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Application lifespan context manager for startup/shutdown events."""
-    settings = get_settings()
-    logger.info("Starting ZKP File Sharing API", version=settings.APP_VERSION)
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan manager.
     
-    # Startup logic here (database connections, etc.)
+    Handles startup and shutdown events for the FastAPI application,
+    including database connection initialization and cleanup.
+    """
+    # Startup
+    logger.info("Starting ZKP File Sharing API")
+    try:
+        await init_db()
+        logger.info("Database connection established")
+    except Exception as e:
+        logger.error("Failed to initialize database", error=str(e))
+        raise
+    
     yield
     
-    # Shutdown logic here
+    # Shutdown
     logger.info("Shutting down ZKP File Sharing API")
+    try:
+        await close_db()
+        logger.info("Database connections closed")
+    except Exception as e:
+        logger.error("Error during shutdown", error=str(e))
 
 
-def create_app() -> FastAPI:
-    """Create and configure the FastAPI application."""
-    settings = get_settings()
-    
-    app = FastAPI(
-        title=settings.APP_NAME,
-        description="A secure file-sharing application using Zero-Knowledge Proof authentication",
-        version=settings.APP_VERSION,
-        docs_url="/docs" if settings.DEBUG else None,
-        redoc_url="/redoc" if settings.DEBUG else None,
-        lifespan=lifespan,
-    )
-    
-    # Add CORS middleware
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.CORS_ORIGINS,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-    
-    # Setup exception handlers
-    setup_exception_handlers(app)
-    
-    # Include routers
-    app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
-    app.include_router(users_router, prefix="/api/users", tags=["Users"])
-    app.include_router(files_router, prefix="/api/files", tags=["Files"])
-    
-    # Health check endpoint
-    @app.get("/health")
-    async def health_check():
-        """Health check endpoint."""
-        return JSONResponse(
-            content={
-                "status": "healthy",
-                "app": settings.APP_NAME,
-                "version": settings.APP_VERSION,
+# Initialize FastAPI app
+settings = get_settings()
+app = FastAPI(
+    title="ZKP File Sharing API",
+    description="A secure file-sharing application using Zero-Knowledge Proof authentication",
+    version="0.1.0",
+    lifespan=lifespan,
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+
+# Custom exception handlers
+@app.exception_handler(ZKPException)
+async def zkp_exception_handler(request: Request, exc: ZKPException):
+    """Handle ZKP-related exceptions."""
+    logger.warning("ZKP exception occurred", error=str(exc), path=request.url.path)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "error": {
+                "type": exc.__class__.__name__,
+                "message": str(exc),
+                "code": exc.error_code
             }
-        )
-    
-    return app
-
-
-# Create the FastAPI app instance
-app = create_app()
-
-
-def run_server():
-    """Run the development server."""
-    import uvicorn
-    settings = get_settings()
-    
-    uvicorn.run(
-        "app.main:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG,
-        log_level="info",
+        }
     )
+
+
+@app.exception_handler(AuthenticationFailedException)
+async def auth_exception_handler(request: Request, exc: AuthenticationFailedException):
+    """Handle authentication failures."""
+    logger.warning("Authentication failed", error=str(exc), path=request.url.path)
+    return JSONResponse(
+        status_code=401,
+        content={
+            "success": False,
+            "error": {
+                "type": "AuthenticationError",
+                "message": str(exc),
+                "code": "AUTH_FAILED"
+            }
+        }
+    )
+
+
+@app.exception_handler(UserNotFoundException)
+async def user_not_found_handler(request: Request, exc: UserNotFoundException):
+    """Handle user not found exceptions."""
+    logger.warning("User not found", error=str(exc), path=request.url.path)
+    return JSONResponse(
+        status_code=404,
+        content={
+            "success": False,
+            "error": {
+                "type": "UserNotFound",
+                "message": str(exc),
+                "code": "USER_NOT_FOUND"
+            }
+        }
+    )
+
+
+@app.exception_handler(ZKPVerificationFailedException)
+async def zkp_verification_handler(request: Request, exc: ZKPVerificationFailedException):
+    """Handle ZKP verification failures."""
+    logger.warning("ZKP verification failed", path=request.url.path)
+    return JSONResponse(
+        status_code=401,
+        content={
+            "success": False,
+            "error": {
+                "type": "ZKPVerificationError",
+                "message": str(exc),
+                "code": "ZKP_VERIFICATION_FAILED"
+            }
+        }
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions."""
+    logger.warning("HTTP exception", status_code=exc.status_code, detail=exc.detail, path=request.url.path)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "success": False,
+            "error": {
+                "type": "HTTPError",
+                "message": exc.detail,
+                "code": f"HTTP_{exc.status_code}"
+            }
+        }
+    )
+
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    """Handle all other unhandled exceptions."""
+    logger.error("Unhandled exception occurred", error=str(exc), path=request.url.path, exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "error": {
+                "type": "InternalServerError",
+                "message": "An internal server error occurred",
+                "code": "INTERNAL_SERVER_ERROR",
+                "details": str(exc) if settings.DEBUG else None
+            }
+        }
+    )
+
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {
+        "status": "healthy",
+        "app": "ZKP File Sharing API",
+        "version": "0.1.0"
+    }
+
+
+# Include routers
+app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
 
 
 if __name__ == "__main__":
-    run_server() 
+    import uvicorn
+    uvicorn.run(
+        "app.main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=settings.DEBUG,
+        log_level="debug" if settings.DEBUG else "info"
+    ) 

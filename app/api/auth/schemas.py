@@ -8,12 +8,13 @@ operations including registration, login, and token verification.
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field, field_validator
+import re
 
 
 class ZKPProof(BaseModel):
     """Zero-Knowledge Proof structure."""
-    proof: str = Field(..., description="Base64 encoded proof")
+    proof: List[str] = Field(..., description="Array of proof elements")
     public_signals: List[str] = Field(..., description="Array of public signals")
     verification_key_hash: Optional[str] = Field(None, description="Verification key hash")
 
@@ -21,9 +22,18 @@ class ZKPProof(BaseModel):
 class UserRegistrationRequest(BaseModel):
     """Request model for user registration."""
     username: str = Field(..., min_length=3, max_length=50, description="Username")
-    email: EmailStr = Field(..., description="Email address")
+    email: str = Field(..., description="Email address")
     public_key: str = Field(..., description="User's public key for ZKP")
     zkp_proof: ZKPProof = Field(..., description="Zero-knowledge proof for registration")
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, v):
+        """Basic email validation."""
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, v):
+            raise ValueError("Invalid email format")
+        return v
 
 
 class UserLoginRequest(BaseModel):
