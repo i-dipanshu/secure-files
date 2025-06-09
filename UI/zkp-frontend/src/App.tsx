@@ -180,7 +180,7 @@ function App() {
       <AuthContext.Provider value={authValue}>
         <Router>
           <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-            <Navbar />
+            {isAuthenticated && <Navbar />}
             <Box component="main" sx={{ flexGrow: 1, bgcolor: 'background.default' }}>
               <Routes>
                 {/* Public routes */}

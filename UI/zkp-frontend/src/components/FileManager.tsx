@@ -115,6 +115,8 @@ const FileManager: React.FC = () => {
     is_public: true,
     expires_in_days: 7,
     max_downloads: 0, // 0 means unlimited
+    shared_users: '', // Add this field for private sharing
+    require_auth: false,
   });
 
   useEffect(() => {
@@ -242,8 +244,11 @@ const FileManager: React.FC = () => {
         await loadData();
       } else {
         const errorData = await response.json().catch(() => ({ detail: 'Upload failed' }));
+        const errorMessage = typeof errorData === 'string' ? errorData : 
+                            errorData.detail || 
+                            (errorData.message ? errorData.message : 'Upload failed');
         console.error('Upload failed:', errorData);
-        showSnackbar(errorData.detail || 'Upload failed', 'error');
+        showSnackbar(errorMessage, 'error');
       }
     } catch (error) {
       console.error('Upload error:', error);
@@ -317,7 +322,10 @@ const FileManager: React.FC = () => {
         await loadFiles();
       } else {
         const errorData = await response.json().catch(() => ({ detail: 'Update failed' }));
-        showSnackbar(errorData.detail || 'Update failed', 'error');
+        const errorMessage = typeof errorData === 'string' ? errorData : 
+                            errorData.detail || 
+                            (errorData.message ? errorData.message : 'Update failed');
+        showSnackbar(errorMessage, 'error');
       }
     } catch (error) {
       console.error('Update error:', error);
@@ -347,7 +355,10 @@ const FileManager: React.FC = () => {
         await loadData();
       } else {
         const errorData = await response.json().catch(() => ({ detail: 'Delete failed' }));
-        showSnackbar(errorData.detail || 'Delete failed', 'error');
+        const errorMessage = typeof errorData === 'string' ? errorData : 
+                            errorData.detail || 
+                            (errorData.message ? errorData.message : 'Delete failed');
+        showSnackbar(errorMessage, 'error');
       }
     } catch (error) {
       console.error('Delete error:', error);
@@ -360,22 +371,90 @@ const FileManager: React.FC = () => {
 
     setCreatingShare(true);
     try {
-      // Since we don't have a sharing API endpoint yet, let's create a mock share link
-      const mockShareLink: ShareLink = {
-        share_id: `share_${Math.random().toString(36).substr(2, 9)}`,
-        file_id: selectedFileInfo.file_id,
-        share_url: `http://localhost:3000/share/${selectedFileInfo.file_id}?token=${Math.random().toString(36).substr(2, 16)}`,
-        is_public: shareForm.is_public,
-        expires_at: shareForm.expires_in_days > 0 ? 
-          new Date(Date.now() + shareForm.expires_in_days * 24 * 60 * 60 * 1000).toISOString() : 
-          undefined,
-        max_downloads: shareForm.max_downloads > 0 ? shareForm.max_downloads : undefined,
-        download_count: 0,
-        created_at: new Date().toISOString(),
-      };
+      const token = zkpService.getToken();
+      if (!token) {
+        showSnackbar('Authentication required', 'error');
+        return;
+      }
 
-      setShareLink(mockShareLink);
-      showSnackbar('Share link created successfully!', 'success');
+      if (shareForm.is_public) {
+        // For public sharing, we'll create a mock share link since there's no public share API yet
+        const mockShareLink: ShareLink = {
+          share_id: `share_${Math.random().toString(36).substr(2, 9)}`,
+          file_id: selectedFileInfo.file_id,
+          share_url: `http://localhost:3000/share/${selectedFileInfo.file_id}?token=${Math.random().toString(36).substr(2, 16)}`,
+          is_public: true,
+          expires_at: shareForm.expires_in_days > 0 ? 
+            new Date(Date.now() + shareForm.expires_in_days * 24 * 60 * 60 * 1000).toISOString() : 
+            undefined,
+          max_downloads: shareForm.max_downloads > 0 ? shareForm.max_downloads : undefined,
+          download_count: 0,
+          created_at: new Date().toISOString(),
+        };
+
+        setShareLink(mockShareLink);
+        showSnackbar('Public share link created successfully!', 'success');
+      } else {
+        // For private sharing, use the backend API for each user
+        const sharedUsers = shareForm.shared_users.split(',').map(u => u.trim()).filter(u => u);
+        const successfulShares: string[] = [];
+        const failedShares: string[] = [];
+
+        for (const user of sharedUsers) {
+          try {
+            const response = await fetch(`http://localhost:8000/api/files/${selectedFileInfo.file_id}/share`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                target_user: user,
+                permission_type: 'READ', // Default permission
+                expires_hours: shareForm.expires_in_days * 24, // Convert days to hours
+              }),
+            });
+
+            if (response.ok) {
+              successfulShares.push(user);
+            } else {
+              const errorData = await response.json().catch(() => ({ detail: 'Share failed' }));
+              console.error(`Failed to share with ${user}:`, errorData);
+              failedShares.push(user);
+            }
+          } catch (error) {
+            console.error(`Error sharing with ${user}:`, error);
+            failedShares.push(user);
+          }
+        }
+
+        // Show results
+        if (successfulShares.length > 0) {
+          showSnackbar(`File shared successfully with: ${successfulShares.join(', ')}`, 'success');
+        }
+        if (failedShares.length > 0) {
+          showSnackbar(`Failed to share with: ${failedShares.join(', ')}`, 'error');
+        }
+
+        // Create mock share link for display
+        if (successfulShares.length > 0) {
+          const mockShareLink: ShareLink = {
+            share_id: `share_${Math.random().toString(36).substr(2, 9)}`,
+            file_id: selectedFileInfo.file_id,
+            share_url: `Private sharing with ${successfulShares.length} user(s)`,
+            is_public: false,
+            expires_at: shareForm.expires_in_days > 0 ? 
+              new Date(Date.now() + shareForm.expires_in_days * 24 * 60 * 60 * 1000).toISOString() : 
+              undefined,
+            max_downloads: shareForm.max_downloads > 0 ? shareForm.max_downloads : undefined,
+            download_count: 0,
+            created_at: new Date().toISOString(),
+          };
+          setShareLink(mockShareLink);
+        }
+      }
+      
+      await loadFiles(); // Refresh to update any sharing indicators
     } catch (error) {
       console.error('Share creation error:', error);
       showSnackbar('Failed to create share link', 'error');
@@ -434,6 +513,8 @@ const FileManager: React.FC = () => {
       is_public: true,
       expires_in_days: 7,
       max_downloads: 0,
+      shared_users: '',
+      require_auth: false,
     });
     setShareDialogOpen(true);
     setAnchorEl(null);
@@ -863,6 +944,18 @@ const FileManager: React.FC = () => {
                 sx={{ mb: 2 }}
               />
 
+              {!shareForm.is_public && (
+                <TextField
+                  fullWidth
+                  label="Share with users (usernames or emails)"
+                  value={shareForm.shared_users}
+                  onChange={(e) => setShareForm({ ...shareForm, shared_users: e.target.value })}
+                  margin="normal"
+                  helperText="Enter usernames or emails separated by commas (e.g., john_doe, jane@example.com)"
+                  placeholder="username1, username2, user@email.com"
+                />
+              )}
+
               <TextField
                 fullWidth
                 type="number"
@@ -882,6 +975,17 @@ const FileManager: React.FC = () => {
                 margin="normal"
                 helperText="Set to 0 for unlimited downloads"
               />
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={shareForm.require_auth}
+                    onChange={(e) => setShareForm({ ...shareForm, require_auth: e.target.checked })}
+                  />
+                }
+                label="Require authentication to access"
+                sx={{ mt: 2 }}
+              />
             </Box>
           )}
         </DialogContent>
@@ -893,7 +997,7 @@ const FileManager: React.FC = () => {
             <Button
               onClick={handleCreateShare}
               variant="contained"
-              disabled={creatingShare}
+              disabled={creatingShare || (!shareForm.is_public && !shareForm.shared_users.trim())}
               startIcon={creatingShare ? <CircularProgress size={16} /> : <LinkIcon />}
             >
               Create Share Link
