@@ -65,6 +65,8 @@ zkp-file-sharing/
 │   ├── models/
 │   ├── services/
 │   └── utils/
+├── UI/
+│   └── zkp-frontend/          # React frontend application
 ├── tests/
 ├── docs/
 ├── pyproject.toml
@@ -80,6 +82,7 @@ zkp-file-sharing/
 - Poetry
 - PostgreSQL
 - MinIO Server
+- Node.js 18+ (for frontend)
 - Docker (optional)
 
 ### Installation
@@ -116,18 +119,45 @@ zkp-file-sharing/
    poetry run uvicorn app.main:app --reload
    ```
 
+7. **Start the frontend (optional)**
+   ```bash
+   cd UI/zkp-frontend
+   npm install
+   npm start
+   ```
+
+## 📖 User Documentation
+
+### **For End Users**
+- **[📚 Complete User Guide](docs/USER_GUIDE.md)** - Comprehensive guide for using the ZKP File Sharing application
+- **[🚀 Quick Start Guide](docs/QUICK_START_GUIDE.md)** - Fast setup and essential information
+
+### **For Developers**
+- **[🏗️ Frontend Documentation](docs/UI_DOCUMENTATION.md)** - React application architecture and development
+- **[🔐 ZKP Implementation](docs/ZKP_IMPLEMENTATION.md)** - Technical details of Zero-Knowledge Proof system
+- **[🔄 Authentication Flow](docs/AUTHENTICATION_FLOW.md)** - Complete authentication process documentation
+
+### **Application Features**
+- ✅ **Real Zero-Knowledge Proof Authentication** - No mock verification
+- ✅ **Professional React Frontend** - Material-UI with TypeScript
+- ✅ **Secure Key Management** - Client-side key generation and storage
+- ✅ **Mobile Responsive Design** - Works on all devices
+- ✅ **Production Ready** - Complete build process and deployment docs
+
 ## 📚 API Documentation
 
 Once the server is running, visit:
 - **Swagger UI**: `http://localhost:8000/docs`
 - **ReDoc**: `http://localhost:8000/redoc`
+- **Frontend Application**: `http://localhost:3000` (if running)
 
 ## 🔐 Security Features
 
 - **Zero-Knowledge Authentication**: No passwords stored or transmitted
-- **End-to-End Encryption**: Files encrypted before storage
-- **Access Control**: Granular permission system
-- **Audit Logging**: All file operations logged
+- **Real Cryptographic Proofs**: SECP256k1 elliptic curve with Schnorr signatures
+- **Client-Side Key Generation**: Private keys never leave user's device
+- **Secure Session Management**: JWT tokens with 30-minute expiration
+- **Professional Security Warnings**: Clear user guidance on key management
 - **Rate Limiting**: API protection against abuse
 
 ## 🧪 Testing
@@ -141,6 +171,12 @@ poetry run pytest --cov=app
 
 # Run specific test file
 poetry run pytest tests/test_auth.py
+
+# Test real ZKP implementation
+python test_real_zkp.py
+
+# Frontend tests
+cd UI/zkp-frontend && npm test
 ```
 
 ## 📈 Development Status

@@ -67,7 +67,7 @@ export interface AuthContextType {
   loading: boolean;
   login: (identifier: string, privateKey: string) => Promise<boolean>;
   logout: () => void;
-  register: (username: string, email: string, keyPair: any) => Promise<boolean>;
+  register: (username: string, email: string, keyPair: any) => Promise<{success: boolean, error?: string}>;
   checkAuth: () => Promise<void>;
 }
 
@@ -132,13 +132,23 @@ function App() {
     setUser(null);
   };
 
-  const register = async (username: string, email: string, keyPair: any): Promise<boolean> => {
+  const register = async (username: string, email: string, keyPair: any): Promise<{success: boolean, error?: string}> => {
     try {
       const result = await zkpService.register(username, email, keyPair);
-      return result.success;
-    } catch (error) {
+      if (result.success) {
+        return { success: true };
+      } else {
+        return { 
+          success: false, 
+          error: result.error?.message || 'Registration failed'
+        };
+      }
+    } catch (error: any) {
       console.error('Registration failed:', error);
-      return false;
+      return { 
+        success: false, 
+        error: error.message || 'Registration failed'
+      };
     }
   };
 

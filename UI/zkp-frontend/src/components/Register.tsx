@@ -119,7 +119,7 @@ const Register: React.FC = () => {
     try {
       const result = await auth?.register(username, email, keyPair);
       
-      if (result) {
+      if (result?.success) {
         setSuccess('Registration successful! You can now login with your credentials.');
         
         // Store private key securely (with user warning)
@@ -130,7 +130,7 @@ const Register: React.FC = () => {
           navigate('/login');
         }, 2000);
       } else {
-        setError('Registration failed. Please try again.');
+        setError(result?.error || 'Registration failed. Please try again.');
       }
     } catch (err: any) {
       setError('Registration failed: ' + err.message);

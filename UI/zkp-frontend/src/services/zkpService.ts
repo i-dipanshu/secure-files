@@ -12,6 +12,7 @@
  */
 
 import * as EC from 'elliptic';
+import BN from 'bn.js';
 import CryptoJS from 'crypto-js';
 import axios, { AxiosResponse } from 'axios';
 
@@ -72,7 +73,23 @@ class ZKPService {
     headers: {
       'Content-Type': 'application/json',
     },
+    timeout: 10000, // 10 second timeout
   });
+
+  /**
+   * Test connection to the backend server
+   */
+  async testConnection(): Promise<boolean> {
+    try {
+      console.log('Testing connection to:', `${API_BASE_URL}/health`);
+      const response = await this.apiClient.get('/health');
+      console.log('Connection test successful:', response.data);
+      return true;
+    } catch (error: any) {
+      console.error('Connection test failed:', error.message);
+      return false;
+    }
+  }
 
   /**
    * Generate a cryptographically secure SECP256k1 key pair
@@ -135,9 +152,11 @@ class ZKPService {
     const hashResult = hasher.finalize();
     const challengeHex = hashResult.toString(CryptoJS.enc.Hex);
     
-    // Reduce modulo curve order (approximately)
-    const challenge = ec.curve.n!.red(challengeHex);
-    return challenge.toString('hex');
+    // Convert to BN and reduce modulo curve order
+    const challenge = new BN(challengeHex, 16);
+    const reducedChallenge = challenge.mod(ec.curve.n);
+    
+    return reducedChallenge.toString('hex');
   }
 
   /**
@@ -174,9 +193,9 @@ class ZKPService {
     );
     
     // Compute response s = r + c * x (mod n)
-    const challengeBN = ec.curve.n!.red(challenge);
+    const challengeBN = new BN(challenge, 16);
     const privateKeyBN = keyPair.getPrivate();
-    const response = nonce.add(challengeBN.mul(privateKeyBN)).mod(ec.curve.n!);
+    const response = nonce.add(challengeBN.mul(privateKeyBN)).mod(ec.curve.n);
     
     return {
       commitment_x: `0x${commitmentX}`,
@@ -227,8 +246,8 @@ class ZKPService {
       }
       
       // Verify main equation: s * G = R + c * P
-      const responseBN = ec.curve.n!.red(response);
-      const challengeBN = ec.curve.n!.red(challenge);
+      const responseBN = new BN(response, 16);
+      const challengeBN = new BN(challenge, 16);
       
       const leftSide = ec.g.mul(responseBN);
       const commitment = ec.curve.point(commitmentX, commitmentY);
@@ -251,22 +270,55 @@ class ZKPService {
     keyPair: ZKPKeyPair
   ): Promise<APIResponse> {
     try {
+      console.log('=== ZKP Registration Debug ===');
+      console.log('API Base URL:', API_BASE_URL);
+      console.log('Request URL:', `${API_BASE_URL}/api/auth/register`);
+      
+      // Test connection first
+      const connectionOk = await this.testConnection();
+      if (!connectionOk) {
+        return {
+          success: false,
+          error: {
+            type: 'ConnectionError',
+            message: 'Cannot connect to the backend server. Please ensure the server is running on http://localhost:8000',
+            code: 'CONNECTION_FAILED',
+          },
+        };
+      }
+
       // Create registration proof
       const message = this.createAuthenticationMessage(username);
       const zkpProof = this.createProof(keyPair.privateKey, message);
       
+      const requestData = {
+        username,
+        email,
+        public_key: keyPair.publicKeyHex,
+        zkp_proof: zkpProof,
+      };
+      
+      console.log('Registration request:', { username, email, message });
+      console.log('ZKP Proof:', zkpProof);
+      console.log('Request data:', requestData);
+      
       const response: AxiosResponse<APIResponse> = await this.apiClient.post(
         '/api/auth/register',
-        {
-          username,
-          email,
-          public_key: keyPair.publicKeyHex,
-          zkp_proof: zkpProof,
-        }
+        requestData
       );
       
+      console.log('Registration response:', response.data);
       return response.data;
     } catch (error: any) {
+      console.error('=== Registration Error Details ===');
+      console.error('Error type:', error.constructor.name);
+      console.error('Error message:', error.message);
+      console.error('Error code:', error.code);
+      console.error('Error config:', error.config);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      console.error('Full error object:', error);
+      
       if (error.response?.data) {
         return error.response.data;
       }
@@ -274,7 +326,7 @@ class ZKPService {
         success: false,
         error: {
           type: 'NetworkError',
-          message: 'Failed to connect to the server',
+          message: `Failed to connect to the server: ${error.message}`,
           code: 'NETWORK_ERROR',
         },
       };
