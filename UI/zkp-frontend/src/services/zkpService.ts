@@ -462,6 +462,13 @@ class ZKPService {
   }
 
   /**
+   * Get stored authentication token
+   */
+  getToken(): string | null {
+    return localStorage.getItem('zkp_token');
+  }
+
+  /**
    * Initialize API client with stored token
    */
   initializeAuth(): void {

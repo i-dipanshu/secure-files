@@ -15,6 +15,9 @@ import {
   AccountCircle,
   VpnKey,
   Logout,
+  FolderOpen,
+  Person,
+  Share,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AuthContext } from '../App';
@@ -46,6 +49,21 @@ const Navbar: React.FC = () => {
 
   const handleKeys = () => {
     navigate('/keys');
+    handleClose();
+  };
+
+  const handleFiles = () => {
+    navigate('/files');
+    handleClose();
+  };
+
+  const handleEditProfile = () => {
+    navigate('/edit-profile');
+    handleClose();
+  };
+
+  const handleFileSharing = () => {
+    navigate('/file-sharing');
     handleClose();
   };
 
@@ -106,6 +124,18 @@ const Navbar: React.FC = () => {
               <MenuItem onClick={handleKeys}>
                 <VpnKey sx={{ mr: 1 }} />
                 Key Manager
+              </MenuItem>
+              <MenuItem onClick={handleFiles}>
+                <FolderOpen sx={{ mr: 1 }} />
+                File Manager
+              </MenuItem>
+              <MenuItem onClick={handleEditProfile}>
+                <Person sx={{ mr: 1 }} />
+                Edit Profile
+              </MenuItem>
+              <MenuItem onClick={handleFileSharing}>
+                <Share sx={{ mr: 1 }} />
+                File Sharing
               </MenuItem>
               <MenuItem onClick={handleLogout}>
                 <Logout sx={{ mr: 1 }} />

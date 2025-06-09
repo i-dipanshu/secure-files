@@ -20,6 +20,7 @@ from app.core.exceptions import (
 )
 from app.models.database import init_db, close_db
 from app.api.auth import auth_router
+from app.api.files import router as files_router
 
 # Configure structured logging
 structlog.configure(
@@ -209,6 +210,7 @@ async def health_check():
 
 # Include routers
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(files_router, prefix="/api/files", tags=["Files"])
 
 
 if __name__ == "__main__":

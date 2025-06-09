@@ -7,11 +7,11 @@ authentication including public keys and metadata.
 
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
-from sqlalchemy import Boolean, DateTime, String, Text, func
+from sqlalchemy import Boolean, DateTime, String, Text, func, Integer
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.database import Base
 
@@ -85,9 +85,17 @@ class User(Base):
     
     # Storage usage tracking
     storage_used: Mapped[int] = mapped_column(
+        Integer,
         default=0,
         nullable=False,
         comment="Storage used in bytes"
+    )
+    
+    # Relationships
+    files: Mapped[List["File"]] = relationship(
+        "File", 
+        back_populates="owner",
+        cascade="all, delete-orphan"
     )
     
     def __repr__(self) -> str:

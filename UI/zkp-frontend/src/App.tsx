@@ -9,6 +9,9 @@ import Register from './components/Register';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import KeyManager from './components/KeyManager';
+import FileManager from './components/FileManager';
+import EditProfile from './components/EditProfile';
+import FileSharing from './components/FileSharing';
 import LoadingScreen from './components/LoadingScreen';
 
 // Services
@@ -198,6 +201,18 @@ function App() {
                 <Route 
                   path="/keys" 
                   element={isAuthenticated ? <KeyManager /> : <Navigate to="/login" />} 
+                />
+                <Route 
+                  path="/files" 
+                  element={isAuthenticated ? <FileManager /> : <Navigate to="/login" />} 
+                />
+                <Route 
+                  path="/edit-profile" 
+                  element={isAuthenticated ? <EditProfile /> : <Navigate to="/login" />} 
+                />
+                <Route 
+                  path="/file-sharing" 
+                  element={isAuthenticated ? <FileSharing /> : <Navigate to="/login" />} 
                 />
                 
                 {/* Default route */}

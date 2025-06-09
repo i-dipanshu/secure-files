@@ -21,6 +21,8 @@ import {
   CheckCircle,
   Warning,
   Info,
+  FolderOpen,
+  Share,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../App';
@@ -206,25 +208,27 @@ const Dashboard: React.FC = () => {
             </Button>
             
             <Button
+              variant="contained"
+              startIcon={<FolderOpen />}
+              onClick={() => navigate('/files')}
+            >
+              File Manager
+            </Button>
+            
+            <Button
               variant="outlined"
               startIcon={<AccountCircle />}
-              disabled
+              onClick={() => navigate('/edit-profile')}
             >
-              Edit Profile (Coming Soon)
+              Edit Profile
             </Button>
             
             <Button
               variant="outlined"
-              disabled
+              startIcon={<Share />}
+              onClick={() => navigate('/file-sharing')}
             >
-              Files (Coming Soon)
-            </Button>
-            
-            <Button
-              variant="outlined"
-              disabled
-            >
-              Sharing (Coming Soon)
+              File Sharing
             </Button>
           </Box>
         </Paper>
