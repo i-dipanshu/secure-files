@@ -13,6 +13,7 @@ import FileManager from './components/FileManager';
 import EditProfile from './components/EditProfile';
 import FileSharing from './components/FileSharing';
 import LoadingScreen from './components/LoadingScreen';
+import PublicFileAccess from './components/PublicFileAccess';
 
 // Services
 import { zkpService } from './services/zkpService';
@@ -191,6 +192,10 @@ function App() {
                 <Route 
                   path="/register" 
                   element={isAuthenticated ? <Navigate to="/dashboard" /> : <Register />} 
+                />
+                <Route 
+                  path="/public/:fileId" 
+                  element={<PublicFileAccess />} 
                 />
                 
                 {/* Protected routes */}

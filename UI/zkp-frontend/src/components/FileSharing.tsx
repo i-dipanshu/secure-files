@@ -85,20 +85,7 @@ const FileSharing: React.FC = () => {
     require_auth: false,
   });
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      await Promise.all([loadSharedFiles(), loadShareLinks()]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const loadSharedFiles = async () => {
+  const loadSharedFiles = useCallback(async () => {
     try {
       const token = zkpService.getToken();
       if (!token) {
@@ -106,6 +93,70 @@ const FileSharing: React.FC = () => {
         return;
       }
 
+      const response = await fetch('http://localhost:8000/api/files/shared', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Shared files API response:', data);
+        
+        // Handle the response properly - the API returns files that have been shared with the user
+        const sharedFiles = data.files || [];
+        
+        // Transform the API response to match our interface
+        const transformedFiles = sharedFiles.map((file: any) => ({
+          file_id: file.file_id,
+          filename: file.filename,
+          display_name: file.display_name || file.filename,
+          file_size: file.file_size,
+          mime_type: file.mime_type,
+          created_at: file.created_at || file.shared_at,
+          is_public: file.is_public || false,
+          share_url: file.is_public ? `http://localhost:3000/public/${file.file_id}` : undefined,
+          shared_with: file.is_public ? [] : ['Private share'],
+          access_count: file.view_count || 0,
+          expires_at: file.expires_at,
+          owner: file.owner,
+          permission_type: file.permission_type,
+          shared_at: file.shared_at,
+        }));
+        
+        setFiles(transformedFiles);
+        console.log('Shared files loaded:', transformedFiles);
+      } else {
+        console.error('Failed to load shared files:', response.status);
+        // If the shared endpoint fails, fall back to getting user's own files and showing sharing status
+        await loadUserOwnFilesWithSharingInfo();
+      }
+    } catch (error) {
+      console.error('Error loading shared files:', error);
+      // Fallback to user's own files
+      await loadUserOwnFilesWithSharingInfo();
+    }
+  }, []);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      await Promise.all([loadSharedFiles(), loadShareLinks()]);
+    } finally {
+      setLoading(false);
+    }
+  }, [loadSharedFiles]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const loadUserOwnFilesWithSharingInfo = async () => {
+    try {
+      const token = zkpService.getToken();
+      if (!token) return;
+
+      // Get user's own files
       const response = await fetch('http://localhost:8000/api/files/', {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -114,89 +165,61 @@ const FileSharing: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Files API response:', data);
-        
-        // Get all files from API
         const allFiles = data.files || [];
         
-        // For demo purposes, let's mark some files as shared
-        // In real implementation, the API would return sharing info
-        const sharedFiles = allFiles.map((file: any) => ({
-          ...file,
-          // Add mock sharing data - in real app this would come from API
-          is_public: Math.random() > 0.5, // Randomly mark some as public for demo
-          shared_with: Math.random() > 0.7 ? ['user1', 'user2'] : [], // Some have private shares
-          access_count: Math.floor(Math.random() * 20),
-          share_url: file.file_id ? `http://localhost:3000/share/${file.file_id}` : undefined,
-          expires_at: Math.random() > 0.8 ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : undefined,
-        })).filter((file: any) => 
-          // Only show files that are actually shared (public or have private shares)
-          file.is_public || (file.shared_with && file.shared_with.length > 0)
+        // For each file, check if it has any permissions (is shared)
+        const filesWithSharingInfo = await Promise.all(
+          allFiles.map(async (file: any) => {
+            try {
+              const permResponse = await fetch(`http://localhost:8000/api/files/${file.file_id}/permissions`, {
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                },
+              });
+
+              if (permResponse.ok) {
+                const permData = await permResponse.json();
+                const permissions = permData.permissions || [];
+                
+                return {
+                  ...file,
+                  is_public: file.is_public || false,
+                  shared_with: permissions.map((p: any) => p.username),
+                  access_count: file.view_count || 0,
+                  share_url: file.is_public ? `http://localhost:3000/public/${file.file_id}` : undefined,
+                  permissions: permissions,
+                };
+              }
+              return null;
+            } catch (error) {
+              console.error(`Error getting permissions for file ${file.file_id}:`, error);
+              return null;
+            }
+          })
         );
-        
+
+        // Filter out files that have sharing info (either public or have permissions)
+        const sharedFiles = filesWithSharingInfo
+          .filter(file => file && (file.is_public || (file.shared_with && file.shared_with.length > 0)))
+          .map(file => ({
+            file_id: file.file_id,
+            filename: file.filename,
+            display_name: file.display_name || file.filename,
+            file_size: file.file_size,
+            mime_type: file.mime_type,
+            created_at: file.created_at,
+            is_public: file.is_public,
+            share_url: file.share_url,
+            shared_with: file.shared_with,
+            access_count: file.access_count,
+            expires_at: file.expires_at,
+          }));
+
         setFiles(sharedFiles);
-        console.log('Shared files loaded:', sharedFiles);
-      } else {
-        console.error('Failed to load files:', response.status);
-        // Add some mock data for demonstration if API fails
-        const mockSharedFiles = [
-          {
-            file_id: 'demo1',
-            filename: 'demo-document.pdf',
-            display_name: 'Demo Shared Document',
-            file_size: 1024000,
-            mime_type: 'application/pdf',
-            created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-            is_public: true,
-            shared_with: [],
-            access_count: 15,
-            share_url: 'http://localhost:3000/share/demo1',
-          },
-          {
-            file_id: 'demo2',
-            filename: 'private-report.docx',
-            display_name: 'Private Team Report',
-            file_size: 512000,
-            mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-            is_public: false,
-            shared_with: ['john_doe', 'jane_smith'],
-            access_count: 8,
-            expires_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-          },
-        ];
-        setFiles(mockSharedFiles);
       }
     } catch (error) {
-      console.error('Error loading shared files:', error);
-      // Provide demo data on error
-      const mockSharedFiles = [
-        {
-          file_id: 'demo1',
-          filename: 'demo-document.pdf',
-          display_name: 'Demo Shared Document',
-          file_size: 1024000,
-          mime_type: 'application/pdf',
-          created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-          is_public: true,
-          shared_with: [],
-          access_count: 15,
-          share_url: 'http://localhost:3000/share/demo1',
-        },
-        {
-          file_id: 'demo2',
-          filename: 'private-report.docx',
-          display_name: 'Private Team Report',
-          file_size: 512000,
-          mime_type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-          is_public: false,
-          shared_with: ['john_doe', 'jane_smith'],
-          access_count: 8,
-          expires_at: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-        },
-      ];
-      setFiles(mockSharedFiles);
+      console.error('Error loading user files with sharing info:', error);
+      setFiles([]);
     }
   };
 
@@ -266,41 +289,100 @@ const FileSharing: React.FC = () => {
     if (!selectedFile) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/api/files/${selectedFile.file_id}/share`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${zkpService.getToken()}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          is_public: shareForm.is_public,
-          expires_in_hours: shareForm.expires_in_hours,
-          shared_users: shareForm.shared_users.split(',').map(u => u.trim()).filter(u => u),
-          allow_download: shareForm.allow_download,
-          require_auth: shareForm.require_auth,
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        showSnackbar(`File shared successfully! Share URL: ${data.share_url}`, 'success');
-        setShareDialogOpen(false);
-        setSelectedFile(null);
-        setShareForm({
-          is_public: false,
-          expires_in_hours: 24,
-          shared_users: '',
-          allow_download: true,
-          require_auth: false,
-        });
-        await loadData();
-      } else {
-        const errorData = await response.json().catch(() => ({ detail: 'Failed to share file' }));
-        const errorMessage = typeof errorData === 'string' ? errorData : 
-                            errorData.detail || 
-                            (errorData.message ? errorData.message : 'Failed to share file');
-        showSnackbar(errorMessage, 'error');
+      const token = zkpService.getToken();
+      if (!token) {
+        showSnackbar('Authentication required', 'error');
+        return;
       }
+
+      if (shareForm.is_public) {
+        // For public sharing, update the file to be public
+        const response = await fetch(`http://localhost:8000/api/files/${selectedFile.file_id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            is_public: true,
+          }),
+        });
+
+        if (response.ok) {
+          const publicUrl = `http://localhost:3000/public/${selectedFile.file_id}`;
+          showSnackbar(`File made public! Share URL: ${publicUrl}`, 'success');
+        } else {
+          const errorData = await response.json().catch(() => ({ detail: 'Failed to make file public' }));
+          const errorMessage = typeof errorData === 'string' ? errorData : 
+                              errorData.detail || 
+                              (errorData.message ? errorData.message : 'Failed to make file public');
+          showSnackbar(errorMessage, 'error');
+          return;
+        }
+      } else {
+        // For private sharing, share with specific users
+        const users = shareForm.shared_users.split(',').map(u => u.trim()).filter(u => u);
+        if (users.length === 0) {
+          showSnackbar('Please specify at least one user to share with', 'error');
+          return;
+        }
+
+        const successfulShares: string[] = [];
+        const failedShares: string[] = [];
+
+        for (const user of users) {
+          try {
+            const shareResponse = await fetch(`http://localhost:8000/api/files/${selectedFile.file_id}/share`, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                target_user: user,
+                permission_type: 'READ',
+                expires_hours: shareForm.expires_in_hours > 0 ? shareForm.expires_in_hours : undefined,
+              }),
+            });
+
+            if (shareResponse.ok) {
+              const shareData = await shareResponse.json();
+              successfulShares.push(shareData.permission?.username || user);
+            } else {
+              const errorData = await shareResponse.json().catch(() => ({ detail: 'Share failed' }));
+              console.error(`Failed to share with ${user}:`, errorData);
+              failedShares.push(user);
+            }
+          } catch (error) {
+            console.error(`Error sharing with ${user}:`, error);
+            failedShares.push(user);
+          }
+        }
+
+        // Show results
+        if (successfulShares.length > 0) {
+          showSnackbar(`File shared successfully with: ${successfulShares.join(', ')}`, 'success');
+        }
+        if (failedShares.length > 0) {
+          showSnackbar(`Failed to share with: ${failedShares.join(', ')}`, 'error');
+        }
+
+        if (successfulShares.length === 0) {
+          return; // Don't close dialog if all shares failed
+        }
+      }
+
+      // Close dialog and refresh data
+      setShareDialogOpen(false);
+      setSelectedFile(null);
+      setShareForm({
+        is_public: false,
+        expires_in_hours: 24,
+        shared_users: '',
+        allow_download: true,
+        require_auth: false,
+      });
+      await loadData();
     } catch (error) {
       console.error('Share error:', error);
       showSnackbar('Failed to share file', 'error');
@@ -315,14 +397,46 @@ const FileSharing: React.FC = () => {
     });
   };
 
-  const handleRevokeShare = async (fileId: string) => {
-    if (!window.confirm('Are you sure you want to revoke sharing for this file?')) return;
+  const handleRevokeShare = async (fileId: string, userId?: string) => {
+    if (!userId) {
+      // If no userId provided, get the file permissions first to show users to revoke
+      try {
+        const token = zkpService.getToken();
+        const response = await fetch(`http://localhost:8000/api/files/${fileId}/permissions`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const permissions = data.permissions || [];
+          if (permissions.length === 0) {
+            showSnackbar('No users have access to this file', 'error');
+            return;
+          }
+          
+          // For now, revoke all permissions (in a real app, you'd show a selection dialog)
+          for (const perm of permissions) {
+            await handleRevokeShare(fileId, perm.user_id);
+          }
+          return;
+        }
+      } catch (error) {
+        console.error('Error getting permissions:', error);
+        showSnackbar('Failed to get file permissions', 'error');
+        return;
+      }
+    }
+
+    if (!window.confirm('Are you sure you want to revoke sharing for this user?')) return;
 
     try {
-      const response = await fetch(`http://localhost:8000/api/files/${fileId}/share`, {
+      const token = zkpService.getToken();
+      const response = await fetch(`http://localhost:8000/api/files/${fileId}/share/${userId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${zkpService.getToken()}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
