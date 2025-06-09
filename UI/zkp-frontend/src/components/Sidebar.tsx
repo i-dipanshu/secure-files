@@ -11,8 +11,6 @@ import {
   Divider,
   Paper,
   Chip,
-  IconButton,
-  Tooltip,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -45,6 +43,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navigate = useNavigate();
   const location = useLocation();
   const auth = useContext(AuthContext);
+  const [infoDialog, setInfoDialog] = useState({ open: false, title: '', content: '' });
 
   const navigationItems = [
     {
@@ -75,13 +74,6 @@ const Sidebar: React.FC<SidebarProps> = ({
       path: '/keys',
       description: 'Cryptographic Keys',
     },
-    {
-      id: 'profile',
-      label: 'Edit Profile',
-      icon: <PersonIcon />,
-      path: '/edit-profile',
-      description: 'Account Settings',
-    },
   ];
 
   const handleNavigation = (path: string) => {
@@ -99,6 +91,28 @@ const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
+  const showInfoDialog = (title: string, content: string) => {
+    setInfoDialog({ open: true, title, content });
+  };
+
+  const handleCloseDialog = () => {
+    setInfoDialog({ open: false, title: '', content: '' });
+  };
+
+  const getRandomMemoji = (username: string): string => {
+    const memojis = ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦄', '🐝', '🦋', '🐌', '🐛', '🦀', '🐙', '🦑', '🦐', '🐠', '🐟', '🐡', '🐢', '🦎', '🐍', '🦖', '🦕', '🐲', '🐉', '🦢', '🦜', '🦅', '🦆', '🦉', '🐺', '🐗', '🐴', '🦓', '🦒', '🐘', '🦏', '🦛', '🐪', '🐫', '🦘', '🐃', '🐂', '🐄', '🐎', '🐖', '🐏', '🐑', '🐐', '🦌', '🐕', '🐩', '🐈', '🐓', '🦃', '🕊️', '🐇', '🐁', '🐀', '🐿️', '🦔'];
+    
+    // Generate a consistent index based on username
+    let hash = 0;
+    for (let i = 0; i < username.length; i++) {
+      const char = username.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    return memojis[Math.abs(hash) % memojis.length];
+  };
+
   const sidebarContent = (
     <Box
       sx={{
@@ -113,7 +127,23 @@ const Sidebar: React.FC<SidebarProps> = ({
     >
       {/* Header */}
       <Box sx={{ p: 3, pb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            mb: 1,
+            cursor: 'pointer',
+            borderRadius: 2,
+            p: 1,
+            mx: -1,
+            transition: 'all 0.2s ease-in-out',
+            '&:hover': {
+              backgroundColor: 'rgba(99, 102, 241, 0.05)',
+              transform: 'translateX(2px)',
+            },
+          }}
+          onClick={() => handleNavigation('/dashboard')}
+        >
           <SecurityIcon 
             sx={{ 
               mr: 2, 
@@ -133,65 +163,9 @@ const Sidebar: React.FC<SidebarProps> = ({
               WebkitTextFillColor: 'transparent',
             }}
           >
-            ZKP Secure
+            SecureFiles
           </Typography>
         </Box>
-
-        {/* User Profile */}
-        {auth?.user && (
-          <Paper
-            sx={{
-              p: 2,
-              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)',
-              border: '1px solid rgba(99, 102, 241, 0.2)',
-              borderRadius: 2,
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-              <Avatar 
-                src={auth.user.avatar_url}
-                sx={{ 
-                  width: 40, 
-                  height: 40, 
-                  mr: 2,
-                  background: auth.user.avatar_url 
-                    ? 'transparent' 
-                    : 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                  fontSize: '1.1rem',
-                  fontWeight: 600,
-                }}
-              >
-                {!auth.user.avatar_url && (auth.user.username?.charAt(0)?.toUpperCase() || 'U')}
-              </Avatar>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography 
-                  variant="subtitle2" 
-                  sx={{ 
-                    fontWeight: 600,
-                    color: 'text.primary',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  Hello, {auth.user.username}!
-                </Typography>
-                <Typography 
-                  variant="caption" 
-                  sx={{ 
-                    color: 'text.secondary',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    display: 'block',
-                  }}
-                >
-                  {auth.user.email}
-                </Typography>
-              </Box>
-            </Box>
-          </Paper>
-        )}
       </Box>
 
       <Divider sx={{ opacity: 0.3 }} />
@@ -276,50 +250,263 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Footer Actions */}
       <Box sx={{ p: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.7rem' }}>
-            Secured with ZKP
-          </Typography>
+        {/* User Profile Card */}
+        {auth?.user && (
+          <Paper
+            sx={{
+              p: 3,
+              mb: 3,
+              background: 'linear-gradient(135deg, rgba(248, 250, 252, 0.9) 0%, rgba(241, 245, 249, 0.8) 100%)',
+              border: '2px solid rgba(148, 163, 184, 0.2)',
+              borderRadius: 2,
+              cursor: 'pointer',
+              position: 'relative',
+              overflow: 'hidden',
+              backdropFilter: 'blur(10px)',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, rgba(241, 245, 249, 0.95) 0%, rgba(226, 232, 240, 0.9) 100%)',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 12px 28px -8px rgba(148, 163, 184, 0.3)',
+                borderColor: 'rgba(99, 102, 241, 0.3)',
+              },
+            }}
+            onClick={() => handleNavigation('/edit-profile')}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Box sx={{ position: 'relative' }}>
+                <Avatar 
+                  sx={{ 
+                    width: 52, 
+                    height: 52, 
+                    mr: 2.5,
+                    background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                    fontSize: '1.8rem',
+                    fontWeight: 600,
+                    border: '3px solid rgba(148, 163, 184, 0.2)',
+                    boxShadow: '0 6px 12px -2px rgba(148, 163, 184, 0.25)',
+                  }}
+                >
+                  {getRandomMemoji(auth.user.username || 'user')}
+                </Avatar>
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    bottom: -2,
+                    right: 8,
+                    width: 16,
+                    height: 16,
+                    borderRadius: '50%',
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                    border: '2px solid white',
+                    boxShadow: '0 2px 6px rgba(59, 130, 246, 0.4)',
+                  }}
+                />
+              </Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography 
+                  variant="subtitle1" 
+                  sx={{ 
+                    fontWeight: 700,
+                    color: 'text.primary',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    fontSize: '1rem',
+                    mb: 0.25,
+                  }}
+                >
+                  Hello, {auth.user.username}! 👋
+                </Typography>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    color: 'text.secondary',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    fontWeight: 500,
+                    fontSize: '0.8rem',
+                    mb: 0.5,
+                  }}
+                >
+                  {auth.user.email}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      color: 'primary.main',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      opacity: 0.9,
+                      mr: 1,
+                    }}
+                  >
+                    Tap to edit profile
+                  </Typography>
+                  <PersonIcon 
+                    sx={{ 
+                      fontSize: 14, 
+                      color: 'primary.main',
+                      opacity: 0.7,
+                    }} 
+                  />
+                </Box>
+              </Box>
+            </Box>
+          </Paper>
+        )}
+
+        {/* Logout Button */}
+        <Button
+          onClick={handleLogout}
+          variant="outlined"
+          color="error"
+          fullWidth
+          startIcon={<LogoutIcon />}
+          sx={{
+            borderRadius: 3,
+            borderWidth: '2px',
+            py: 1.5,
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            mb: 3,
+            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.05) 0%, rgba(220, 38, 38, 0.02) 100%)',
+            '&:hover': {
+              borderWidth: '2px',
+              background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.05) 100%)',
+              transform: 'translateY(-2px)',
+              boxShadow: '0 8px 16px -4px rgba(239, 68, 68, 0.3)',
+            },
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          }}
+        >
+          Sign Out
+        </Button>
+
+        {/* Security Information */}
+        <Box
+          sx={{
+            display: 'flex',
+            gap: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            pb: 1,
+          }}
+        >
           <Chip
             size="small"
-            icon={<SecurityIcon sx={{ fontSize: '12px !important' }} />}
-            label="256-bit"
-            color="primary"
+            icon={<SecurityIcon sx={{ fontSize: '10px !important' }} />}
+            label="ZKP Secured"
+            color="success"
             variant="outlined"
+            clickable
+            onClick={() => showInfoDialog(
+              'Zero-Knowledge Proof Authentication',
+              'Zero-Knowledge Proofs (ZKP) allow you to prove you know a secret (your private key) without revealing the secret itself. This cryptographic method ensures maximum privacy - your private key never leaves your device, yet the server can verify your identity. Our implementation uses SECP256k1 elliptic curve cryptography with Schnorr signatures, providing bank-level security for your files.'
+            )}
             sx={{ 
-              fontSize: '0.65rem', 
-              height: 20,
+              fontSize: '0.6rem', 
+              height: 22,
+              cursor: 'pointer',
+              borderWidth: '1px',
+              backgroundColor: 'rgba(16, 185, 129, 0.08)',
+              borderColor: 'rgba(16, 185, 129, 0.3)',
+              color: 'success.main',
+              '&:hover': {
+                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                borderColor: 'rgba(16, 185, 129, 0.5)',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 3px 8px rgba(16, 185, 129, 0.25)',
+              },
+              transition: 'all 0.2s ease-in-out',
               '& .MuiChip-icon': {
-                fontSize: '12px',
+                fontSize: '10px',
+                color: 'success.main',
+              },
+              '& .MuiChip-label': {
+                px: 1.5,
+                fontSize: '0.6rem',
+                fontWeight: 600,
               },
             }}
           />
-        </Box>
-        
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Tooltip title="Logout">
-            <IconButton
-              onClick={handleLogout}
-              sx={{
-                flex: 1,
-                border: '1px solid rgba(239, 68, 68, 0.2)',
-                color: 'error.main',
-                '&:hover': {
-                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                  transform: 'translateY(-1px)',
-                },
-                transition: 'all 0.2s ease-in-out',
-              }}
-            >
-              <LogoutIcon sx={{ fontSize: 18 }} />
-            </IconButton>
-          </Tooltip>
+          
+          <Chip
+            size="small"
+            icon={<SecurityIcon sx={{ fontSize: '10px !important' }} />}
+            label="256-bit Encrypted"
+            color="primary"
+            variant="outlined"
+            clickable
+            onClick={() => showInfoDialog(
+              '256-bit Encryption',
+              'Our application uses 256-bit encryption standards, providing military-grade security for your files. This encryption strength is virtually unbreakable and is the same standard used by banks and government institutions worldwide.'
+            )}
+            sx={{ 
+              fontSize: '0.6rem', 
+              height: 22,
+              cursor: 'pointer',
+              borderWidth: '1px',
+              backgroundColor: 'rgba(99, 102, 241, 0.08)',
+              borderColor: 'rgba(99, 102, 241, 0.3)',
+              color: 'primary.main',
+              '&:hover': {
+                backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                borderColor: 'rgba(99, 102, 241, 0.5)',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 3px 8px rgba(99, 102, 241, 0.25)',
+              },
+              transition: 'all 0.2s ease-in-out',
+              '& .MuiChip-icon': {
+                fontSize: '10px',
+                color: 'primary.main',
+              },
+              '& .MuiChip-label': {
+                px: 1.5,
+                fontSize: '0.6rem',
+                fontWeight: 600,
+              },
+            }}
+          />
         </Box>
       </Box>
     </Box>
   );
 
-  return sidebarContent;
+  return (
+    <>
+      {sidebarContent}
+      
+      {/* Information Dialog */}
+      <Dialog 
+        open={infoDialog.open} 
+        onClose={handleCloseDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ 
+          fontWeight: 600,
+          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+        }}>
+          {infoDialog.title}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mt: 1, lineHeight: 1.6 }}>
+            {infoDialog.content}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog} variant="contained">
+            Got it
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
 };
 
 export default Sidebar; 

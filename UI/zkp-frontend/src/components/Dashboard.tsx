@@ -38,7 +38,8 @@ import { zkpService } from '../services/zkpService';
 interface FileStats {
   total_files: number;
   total_size: number;
-  shared_files: number;
+  shared_by_me_files: number;
+  shared_with_me_files: number;
   recent_uploads: number;
 }
 
@@ -65,7 +66,8 @@ const Dashboard: React.FC = () => {
   const [fileStats, setFileStats] = useState<FileStats>({
     total_files: 0,
     total_size: 0,
-    shared_files: 0,
+    shared_by_me_files: 0,
+    shared_with_me_files: 0,
     recent_uploads: 0,
   });
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
@@ -81,17 +83,17 @@ const Dashboard: React.FC = () => {
         headers: { 'Authorization': `Bearer ${token}` },
       });
       
-      // Load shared files
-      const sharedResponse = await fetch('http://localhost:8000/api/files/shared', {
+      // Load shared with me files
+      const sharedWithMeResponse = await fetch('http://localhost:8000/api/files/shared', {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
-      if (filesResponse.ok && sharedResponse.ok) {
+      if (filesResponse.ok && sharedWithMeResponse.ok) {
         const filesData = await filesResponse.json();
-        const sharedData = await sharedResponse.json();
+        const sharedWithMeData = await sharedWithMeResponse.json();
         
         const files = filesData.files || [];
-        const sharedFiles = sharedData.files || [];
+        const sharedWithMeFiles = sharedWithMeData.files || [];
         
         const totalSize = files.reduce((sum: number, file: any) => sum + (file.file_size || 0), 0);
         const recentUploads = files.filter((file: any) => {
@@ -101,10 +103,30 @@ const Dashboard: React.FC = () => {
           return uploadDate > weekAgo;
         }).length;
 
+        // Count files shared by me (need to check permissions on my files)
+        let sharedByMeCount = 0;
+        for (const file of files) {
+          try {
+            const permResponse = await fetch(`http://localhost:8000/api/files/${file.file_id}/permissions`, {
+              headers: { 'Authorization': `Bearer ${token}` },
+            });
+            if (permResponse.ok) {
+              const permData = await permResponse.json();
+              const permissions = permData.permissions || [];
+              if (permissions.length > 0) {
+                sharedByMeCount++;
+              }
+            }
+          } catch (error) {
+            console.error(`Error checking permissions for file ${file.file_id}:`, error);
+          }
+        }
+
         setFileStats({
           total_files: files.length,
           total_size: totalSize,
-          shared_files: sharedFiles.length,
+          shared_by_me_files: sharedByMeCount,
+          shared_with_me_files: sharedWithMeFiles.length,
           recent_uploads: recentUploads,
         });
       }
@@ -132,38 +154,67 @@ const Dashboard: React.FC = () => {
   }, []);
 
   const loadRecentActivity = useCallback(async () => {
-    // Mock recent activity data - in a real app, this would come from the API
-    const mockActivity: RecentActivity[] = [
-      {
-        id: '1',
-        type: 'upload',
-        filename: 'Project_Report.pdf',
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-        details: '2.4 MB uploaded',
-      },
-      {
-        id: '2',
-        type: 'share',
-        filename: 'Team_Photos.zip',
-        timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-        details: 'Shared with john@example.com',
-      },
-      {
-        id: '3',
-        type: 'download',
-        filename: 'Budget_2024.xlsx',
-        timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
-        details: 'Downloaded by team member',
-      },
-      {
-        id: '4',
+    try {
+      const token = zkpService.getToken();
+      if (!token) return;
+
+      // Load user files to create activity feed
+      const filesResponse = await fetch('http://localhost:8000/api/files/', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (filesResponse.ok) {
+        const filesData = await filesResponse.json();
+        const files = filesData.files || [];
+        
+        // Create activity based on file operations
+        const activities: RecentActivity[] = [];
+        
+        // Add recent uploads (files uploaded in last 7 days)
+        const recentFiles = files
+          .filter((file: any) => {
+            const uploadDate = new Date(file.created_at);
+            const weekAgo = new Date();
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            return uploadDate > weekAgo;
+          })
+          .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 4); // Get last 4 uploads
+
+        recentFiles.forEach((file: any, index: number) => {
+          activities.push({
+            id: `upload-${file.file_id}`,
+            type: 'upload',
+            filename: file.display_name || file.filename,
+            timestamp: file.created_at,
+            details: `${formatFileSize(file.file_size)} • ${file.mime_type || 'File'} uploaded`,
+          });
+        });
+
+        // If no recent uploads, show some placeholder activities
+        if (activities.length === 0) {
+          activities.push({
+            id: 'welcome',
+            type: 'view',
+            filename: 'Welcome to ZKP Secure',
+            timestamp: new Date().toISOString(),
+            details: 'Start uploading files to see your activity here',
+          });
+        }
+
+        setRecentActivity(activities);
+      }
+    } catch (error) {
+      console.error('Failed to load recent activity:', error);
+      // Fallback to a simple welcome message
+      setRecentActivity([{
+        id: 'welcome',
         type: 'view',
-        filename: 'Design_Mockups.fig',
-        timestamp: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
-        details: 'Viewed 3 times today',
-      },
-    ];
-    setRecentActivity(mockActivity);
+        filename: 'Welcome to ZKP Secure',
+        timestamp: new Date().toISOString(),
+        details: 'Your file activity will appear here',
+      }]);
+    }
   }, []);
 
   const loadDashboardData = useCallback(async () => {
@@ -253,13 +304,13 @@ const Dashboard: React.FC = () => {
         </Typography>
       </Box>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - First Row */}
       <Box 
         sx={{ 
           display: 'flex', 
           flexWrap: 'wrap', 
           gap: 3, 
-          mb: 4 
+          mb: 3 
         }}
       >
         {/* Total Files */}
@@ -345,13 +396,23 @@ const Dashboard: React.FC = () => {
             </CardContent>
           </Card>
         </Box>
+      </Box>
 
-        {/* Shared Files */}
+      {/* Stats Cards - Second Row */}
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          flexWrap: 'wrap', 
+          gap: 3, 
+          mb: 4 
+        }}
+      >
+        {/* Shared by Me */}
         <Box sx={{ flex: '1 1 300px', minWidth: '250px' }}>
           <Card 
             sx={{
-              background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.1) 0%, rgba(236, 72, 153, 0.05) 100%)',
-              border: '1px solid rgba(236, 72, 153, 0.2)',
+              background: 'linear-gradient(135deg, rgba(251, 146, 60, 0.1) 0%, rgba(251, 146, 60, 0.05) 100%)',
+              border: '1px solid rgba(251, 146, 60, 0.2)',
               cursor: 'pointer',
               '&:hover': {
                 transform: 'translateY(-4px)',
@@ -367,7 +428,7 @@ const Dashboard: React.FC = () => {
                     width: 48,
                     height: 48,
                     borderRadius: 2,
-                    background: 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)',
+                    background: 'linear-gradient(135deg, #fb923c 0%, #f97316 100%)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -376,13 +437,55 @@ const Dashboard: React.FC = () => {
                 >
                   <Share />
                 </Box>
-                <ChevronRight sx={{ color: 'secondary.main' }} />
+                <ChevronRight sx={{ color: 'warning.main' }} />
               </Box>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: 'secondary.main', mb: 0.5 }}>
-                {fileStats.shared_files}
+              <Typography variant="h4" sx={{ fontWeight: 700, color: 'warning.main', mb: 0.5 }}>
+                {fileStats.shared_by_me_files}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Shared Files
+                Shared by Me
+              </Typography>
+            </CardContent>
+          </Card>
+        </Box>
+
+        {/* Shared with Me */}
+        <Box sx={{ flex: '1 1 300px', minWidth: '250px' }}>
+          <Card 
+            sx={{
+              background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%)',
+              border: '1px solid rgba(59, 130, 246, 0.2)',
+              cursor: 'pointer',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+              },
+            }}
+            onClick={() => navigate('/file-sharing')}
+          >
+            <CardContent sx={{ p: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box
+                  sx={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 2,
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: 'white',
+                  }}
+                >
+                  <Share />
+                </Box>
+                <ChevronRight sx={{ color: 'info.main' }} />
+              </Box>
+              <Typography variant="h4" sx={{ fontWeight: 700, color: 'info.main', mb: 0.5 }}>
+                {fileStats.shared_with_me_files}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Shared with Me
               </Typography>
             </CardContent>
           </Card>
@@ -392,8 +495,8 @@ const Dashboard: React.FC = () => {
         <Box sx={{ flex: '1 1 300px', minWidth: '250px' }}>
           <Card 
             sx={{
-              background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%)',
-              border: '1px solid rgba(245, 158, 11, 0.2)',
+              background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.1) 0%, rgba(236, 72, 153, 0.05) 100%)',
+              border: '1px solid rgba(236, 72, 153, 0.2)',
               cursor: 'pointer',
               '&:hover': {
                 transform: 'translateY(-4px)',
@@ -409,7 +512,7 @@ const Dashboard: React.FC = () => {
                     width: 48,
                     height: 48,
                     borderRadius: 2,
-                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                    background: 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -418,9 +521,9 @@ const Dashboard: React.FC = () => {
                 >
                   <TrendingUp />
                 </Box>
-                <ChevronRight sx={{ color: 'warning.main' }} />
+                <ChevronRight sx={{ color: 'secondary.main' }} />
               </Box>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: 'warning.main', mb: 0.5 }}>
+              <Typography variant="h4" sx={{ fontWeight: 700, color: 'secondary.main', mb: 0.5 }}>
                 {fileStats.recent_uploads}
               </Typography>
               <Typography variant="body2" color="text.secondary">

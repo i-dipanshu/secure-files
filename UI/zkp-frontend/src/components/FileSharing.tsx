@@ -12,8 +12,6 @@ import {
   CircularProgress,
   Snackbar,
   IconButton,
-  Menu,
-  MenuItem,
   List,
   ListItem,
   ListItemText,
@@ -29,7 +27,6 @@ import {
   Share as ShareIcon,
   People as PeopleIcon,
   Delete as DeleteIcon,
-  MoreVert,
   Refresh as RefreshIcon,
   Download,
   Visibility,
@@ -90,8 +87,6 @@ const FileSharing: React.FC = () => {
   const [sharedWithMeGroups, setSharedWithMeGroups] = useState<SharedWithMeGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [menuFileId, setMenuFileId] = useState<string | null>(null);
 
   const loadSharedWithMeFiles = useCallback(async () => {
     try {
@@ -401,16 +396,6 @@ Are you sure you want to revoke ${username}'s access to "${filename}"?`;
     }
   };
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, fileId: string) => {
-    setAnchorEl(event.currentTarget);
-    setMenuFileId(fileId);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setMenuFileId(null);
-  };
-
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -527,214 +512,423 @@ Are you sure you want to revoke ${username}'s access to "${filename}"?`;
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Box sx={{ p: 4, minHeight: '100vh' }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <ShareIcon sx={{ mr: 1, fontSize: 32, color: 'primary.main' }} />
-          <Typography variant="h4" component="h1">
-            File Sharing
-          </Typography>
-        </Box>
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
-          onClick={loadData}
+      <Box sx={{ mb: 4 }}>
+        <Typography 
+          variant="h3" 
+          sx={{ 
+            fontWeight: 800,
+            background: 'linear-gradient(135deg, #1e293b 0%, #475569 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            mb: 1,
+          }}
         >
-          Refresh
-        </Button>
+          File Sharing
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 400 }}>
+            Manage your shared files and permissions securely
+          </Typography>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={loadData}
+            sx={{
+              borderRadius: 2,
+              borderWidth: '1.5px',
+              '&:hover': {
+                borderWidth: '1.5px',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+              },
+              transition: 'all 0.2s ease-in-out',
+            }}
+          >
+            Refresh
+          </Button>
+        </Box>
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          flexWrap: 'wrap', 
+          gap: 3 
+        }}
+      >
         {/* Active User Sharing - Files I've shared */}
-        <Card>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <PeopleIcon sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography variant="h6">Files I've Shared</Typography>
-            </Box>
-
-            {userSharingGroups.length === 0 ? (
-              <Alert severity="info">
-                No files are currently shared with other users. Go to File Manager to share your files.
-              </Alert>
-            ) : (
-              <Box>
-                {userSharingGroups.map((userGroup) => (
-                  <Accordion key={userGroup.user_id} sx={{ mb: 1 }}>
-                    <AccordionSummary expandIcon={<ExpandMore />}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                        <Avatar sx={{ mr: 2, bgcolor: 'primary.main', width: 32, height: 32 }}>
-                          <Person />
-                        </Avatar>
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                            {userGroup.username}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {userGroup.email} • {userGroup.total_files} file(s) shared
-                          </Typography>
-                        </Box>
-                        <Tooltip title="Revoke all access">
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRevokeUserAccess(userGroup.user_id, userGroup.username);
-                            }}
-                            sx={{ ml: 1 }}
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <List dense>
-                        {userGroup.shared_files.map((file, index) => (
-                          <React.Fragment key={file.file_id}>
-                            <ListItem>
-                              <ListItemText
-                                primary={file.display_name}
-                                secondary={
-                                  <Box>
-                                    <Typography variant="caption" display="block">
-                                      Permission: {file.permission_type} • Granted: {formatDate(file.granted_at)}
-                                    </Typography>
-                                    {file.expires_at && (
-                                      <Chip
-                                        label={file.is_expired ? 'Expired' : `Expires: ${formatDate(file.expires_at)}`}
-                                        size="small"
-                                        color={file.is_expired ? 'error' : 'warning'}
-                                        sx={{ mt: 0.5 }}
-                                      />
-                                    )}
-                                  </Box>
-                                }
-                              />
-                              <ListItemSecondaryAction>
-                                <Tooltip title="Revoke access to this file">
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => handleRevokeFileAccess(
-                                      file.file_id,
-                                      userGroup.user_id,
-                                      file.display_name,
-                                      userGroup.username
-                                    )}
-                                  >
-                                    <DeleteIcon />
-                                  </IconButton>
-                                </Tooltip>
-                              </ListItemSecondaryAction>
-                            </ListItem>
-                            {index < userGroup.shared_files.length - 1 && <Divider />}
-                          </React.Fragment>
-                        ))}
-                      </List>
-                    </AccordionDetails>
-                  </Accordion>
-                ))}
+        <Box sx={{ flex: '1 1 600px' }}>
+          <Card 
+            sx={{
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.02) 100%)',
+              border: '1px solid rgba(99, 102, 241, 0.1)',
+              borderRadius: 3,
+              overflow: 'hidden',
+              '&:hover': {
+                boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+              },
+              transition: 'all 0.3s ease-in-out',
+            }}
+          >
+            <CardContent sx={{ p: 0 }}>
+              <Box 
+                sx={{ 
+                  p: 3, 
+                  background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%)',
+                  borderBottom: '1px solid rgba(99, 102, 241, 0.1)',
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Box 
+                    sx={{ 
+                      width: 40, 
+                      height: 40, 
+                      borderRadius: 2, 
+                      background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      mr: 2,
+                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                    }}
+                  >
+                    <PeopleIcon sx={{ color: 'white', fontSize: 20 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                    Files I've Shared
+                  </Typography>
+                </Box>
               </Box>
-            )}
-          </CardContent>
-        </Card>
+
+              <Box sx={{ p: 3 }}>
+                {userSharingGroups.length === 0 ? (
+                  <Alert 
+                    severity="info" 
+                    sx={{ 
+                      background: 'linear-gradient(135deg, rgba(54, 184, 255, 0.1) 0%, rgba(54, 184, 255, 0.05) 100%)',
+                      border: '1px solid rgba(54, 184, 255, 0.2)',
+                    }}
+                  >
+                    No files are currently shared with other users. Go to File Manager to share your files.
+                  </Alert>
+                ) : (
+                  <Box>
+                    {userSharingGroups.map((userGroup) => (
+                      <Accordion 
+                        key={userGroup.user_id} 
+                        sx={{ 
+                          mb: 2,
+                          borderRadius: 2,
+                          border: '1px solid rgba(226, 232, 240, 0.8)',
+                          '&:before': { display: 'none' },
+                          boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+                        }}
+                      >
+                        <AccordionSummary 
+                          expandIcon={<ExpandMore />}
+                          sx={{
+                            borderRadius: 2,
+                            '&:hover': {
+                              backgroundColor: 'rgba(99, 102, 241, 0.05)',
+                            },
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                            <Avatar 
+                              sx={{ 
+                                mr: 2, 
+                                bgcolor: 'primary.main', 
+                                width: 36, 
+                                height: 36,
+                                boxShadow: '0 2px 4px -1px rgb(0 0 0 / 0.1)',
+                              }}
+                            >
+                              <Person />
+                            </Avatar>
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                                {userGroup.username}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+                                {userGroup.email} • {userGroup.total_files} file(s) shared
+                              </Typography>
+                            </Box>
+                            <Tooltip title="Revoke all access">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRevokeUserAccess(userGroup.user_id, userGroup.username);
+                                }}
+                                sx={{ 
+                                  ml: 1,
+                                  color: 'error.main',
+                                  '&:hover': {
+                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                  },
+                                }}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ pt: 0 }}>
+                          <List dense sx={{ pt: 0 }}>
+                            {userGroup.shared_files.map((file, index) => (
+                              <React.Fragment key={file.file_id}>
+                                <ListItem 
+                                  sx={{ 
+                                    px: 0,
+                                    borderRadius: 1,
+                                    '&:hover': {
+                                      backgroundColor: 'rgba(99, 102, 241, 0.03)',
+                                    },
+                                  }}
+                                >
+                                  <ListItemText
+                                    primary={
+                                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                                        {file.display_name}
+                                      </Typography>
+                                    }
+                                    secondary={
+                                      <Box sx={{ mt: 0.5 }}>
+                                        <Typography variant="caption" display="block" sx={{ color: 'text.secondary' }}>
+                                          Permission: {file.permission_type} • Granted: {formatDate(file.granted_at)}
+                                        </Typography>
+                                        {file.expires_at && (
+                                          <Chip
+                                            label={file.is_expired ? 'Expired' : `Expires: ${formatDate(file.expires_at)}`}
+                                            size="small"
+                                            color={file.is_expired ? 'error' : 'warning'}
+                                            sx={{ mt: 0.5, fontSize: '0.7rem', height: 20 }}
+                                          />
+                                        )}
+                                      </Box>
+                                    }
+                                  />
+                                  <ListItemSecondaryAction>
+                                    <Tooltip title="Revoke access to this file">
+                                      <IconButton
+                                        size="small"
+                                        onClick={() => handleRevokeFileAccess(
+                                          file.file_id,
+                                          userGroup.user_id,
+                                          file.display_name,
+                                          userGroup.username
+                                        )}
+                                        sx={{
+                                          color: 'error.main',
+                                          '&:hover': {
+                                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                          },
+                                        }}
+                                      >
+                                        <DeleteIcon />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </ListItemSecondaryAction>
+                                </ListItem>
+                                {index < userGroup.shared_files.length - 1 && <Divider sx={{ my: 0.5 }} />}
+                              </React.Fragment>
+                            ))}
+                          </List>
+                        </AccordionDetails>
+                      </Accordion>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
 
         {/* Files Shared With Me - Organized by Owner */}
-        <Card>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <ShareIcon sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography variant="h6">Files Shared With Me</Typography>
-            </Box>
-
-            {sharedWithMeGroups.length === 0 ? (
-              <Alert severity="info">
-                No files have been shared with you yet.
-              </Alert>
-            ) : (
-              <Box>
-                {sharedWithMeGroups.map((ownerGroup) => (
-                  <Accordion key={ownerGroup.owner_id} sx={{ mb: 1 }}>
-                    <AccordionSummary expandIcon={<ExpandMore />}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                        <Avatar sx={{ mr: 2, bgcolor: 'secondary.main', width: 32, height: 32 }}>
-                          <Person />
-                        </Avatar>
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                            {ownerGroup.owner_username}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {ownerGroup.owner_email} • {ownerGroup.total_files} file(s) shared with you
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <List dense>
-                        {ownerGroup.shared_files.map((file, index) => (
-                          <React.Fragment key={file.file_id}>
-                            <ListItem>
-                              <ListItemText
-                                primary={file.display_name}
-                                secondary={
-                                  <Box>
-                                    <Typography variant="caption" display="block">
-                                      {formatFileSize(file.file_size)} • {file.mime_type}
-                                    </Typography>
-                                    <Typography variant="caption" display="block">
-                                      Permission: {file.permission_type} • Shared: {formatDate(file.shared_at)}
-                                    </Typography>
-                                    {file.expires_at && (
-                                      <Chip
-                                        label={file.is_expired ? 'Expired' : `Expires: ${formatDate(file.expires_at)}`}
-                                        size="small"
-                                        color={file.is_expired ? 'error' : 'warning'}
-                                        sx={{ mt: 0.5 }}
-                                      />
-                                    )}
-                                  </Box>
-                                }
-                              />
-                              <ListItemSecondaryAction>
-                                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                                  <Tooltip title="View file">
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => handleViewFile(file.file_id)}
-                                    >
-                                      <Visibility />
-                                    </IconButton>
-                                  </Tooltip>
-                                  <Tooltip title="Download file">
-                                    <IconButton
-                                      size="small"
-                                      onClick={() => handleDownloadFile(file.file_id, file.display_name)}
-                                    >
-                                      <Download />
-                                    </IconButton>
-                                  </Tooltip>
-                                  <IconButton
-                                    size="small"
-                                    onClick={(e) => handleMenuOpen(e, file.file_id)}
-                                  >
-                                    <MoreVert />
-                                  </IconButton>
-                                </Box>
-                              </ListItemSecondaryAction>
-                            </ListItem>
-                            {index < ownerGroup.shared_files.length - 1 && <Divider />}
-                          </React.Fragment>
-                        ))}
-                      </List>
-                    </AccordionDetails>
-                  </Accordion>
-                ))}
+        <Box sx={{ flex: '1 1 600px' }}>
+          <Card 
+            sx={{
+              background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.05) 0%, rgba(190, 24, 93, 0.02) 100%)',
+              border: '1px solid rgba(236, 72, 153, 0.1)',
+              borderRadius: 3,
+              overflow: 'hidden',
+              '&:hover': {
+                boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)',
+              },
+              transition: 'all 0.3s ease-in-out',
+            }}
+          >
+            <CardContent sx={{ p: 0 }}>
+              <Box 
+                sx={{ 
+                  p: 3, 
+                  background: 'linear-gradient(135deg, rgba(236, 72, 153, 0.1) 0%, rgba(190, 24, 93, 0.05) 100%)',
+                  borderBottom: '1px solid rgba(236, 72, 153, 0.1)',
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Box 
+                    sx={{ 
+                      width: 40, 
+                      height: 40, 
+                      borderRadius: 2, 
+                      background: 'linear-gradient(135deg, #ec4899 0%, #be185d 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      mr: 2,
+                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+                    }}
+                  >
+                    <ShareIcon sx={{ color: 'white', fontSize: 20 }} />
+                  </Box>
+                  <Typography variant="h6" sx={{ fontWeight: 600, color: 'secondary.main' }}>
+                    Files Shared With Me
+                  </Typography>
+                </Box>
               </Box>
-            )}
-          </CardContent>
-        </Card>
+
+              <Box sx={{ p: 3 }}>
+                {sharedWithMeGroups.length === 0 ? (
+                  <Alert 
+                    severity="info"
+                    sx={{ 
+                      background: 'linear-gradient(135deg, rgba(54, 184, 255, 0.1) 0%, rgba(54, 184, 255, 0.05) 100%)',
+                      border: '1px solid rgba(54, 184, 255, 0.2)',
+                    }}
+                  >
+                    No files have been shared with you yet.
+                  </Alert>
+                ) : (
+                  <Box>
+                    {sharedWithMeGroups.map((ownerGroup) => (
+                      <Accordion 
+                        key={ownerGroup.owner_id} 
+                        sx={{ 
+                          mb: 2,
+                          borderRadius: 2,
+                          border: '1px solid rgba(226, 232, 240, 0.8)',
+                          '&:before': { display: 'none' },
+                          boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
+                        }}
+                      >
+                        <AccordionSummary 
+                          expandIcon={<ExpandMore />}
+                          sx={{
+                            borderRadius: 2,
+                            '&:hover': {
+                              backgroundColor: 'rgba(236, 72, 153, 0.05)',
+                            },
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                            <Avatar 
+                              sx={{ 
+                                mr: 2, 
+                                bgcolor: 'secondary.main', 
+                                width: 36, 
+                                height: 36,
+                                boxShadow: '0 2px 4px -1px rgb(0 0 0 / 0.1)',
+                              }}
+                            >
+                              <Person />
+                            </Avatar>
+                            <Box sx={{ flex: 1 }}>
+                              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                                {ownerGroup.owner_username}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
+                                {ownerGroup.owner_email} • {ownerGroup.total_files} file(s) shared with you
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ pt: 0 }}>
+                          <List dense sx={{ pt: 0 }}>
+                            {ownerGroup.shared_files.map((file, index) => (
+                              <React.Fragment key={file.file_id}>
+                                <ListItem 
+                                  sx={{ 
+                                    px: 0,
+                                    borderRadius: 1,
+                                    '&:hover': {
+                                      backgroundColor: 'rgba(236, 72, 153, 0.03)',
+                                    },
+                                  }}
+                                >
+                                  <ListItemText
+                                    primary={
+                                      <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                                        {file.display_name}
+                                      </Typography>
+                                    }
+                                    secondary={
+                                      <Box sx={{ mt: 0.5 }}>
+                                        <Typography variant="caption" display="block" sx={{ color: 'text.secondary' }}>
+                                          {formatFileSize(file.file_size)} • {file.mime_type}
+                                        </Typography>
+                                        <Typography variant="caption" display="block" sx={{ color: 'text.secondary' }}>
+                                          Permission: {file.permission_type} • Shared: {formatDate(file.shared_at)}
+                                        </Typography>
+                                        {file.expires_at && (
+                                          <Chip
+                                            label={file.is_expired ? 'Expired' : `Expires: ${formatDate(file.expires_at)}`}
+                                            size="small"
+                                            color={file.is_expired ? 'error' : 'warning'}
+                                            sx={{ mt: 0.5, fontSize: '0.7rem', height: 20 }}
+                                          />
+                                        )}
+                                      </Box>
+                                    }
+                                  />
+                                  <ListItemSecondaryAction>
+                                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                      <Tooltip title="View file">
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => handleViewFile(file.file_id)}
+                                          sx={{
+                                            color: 'info.main',
+                                            '&:hover': {
+                                              backgroundColor: 'rgba(54, 184, 255, 0.1)',
+                                            },
+                                          }}
+                                        >
+                                          <Visibility />
+                                        </IconButton>
+                                      </Tooltip>
+                                      <Tooltip title="Download file">
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => handleDownloadFile(file.file_id, file.display_name)}
+                                          sx={{
+                                            color: 'success.main',
+                                            '&:hover': {
+                                              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                            },
+                                          }}
+                                        >
+                                          <Download />
+                                        </IconButton>
+                                      </Tooltip>
+                                    </Box>
+                                  </ListItemSecondaryAction>
+                                </ListItem>
+                                {index < ownerGroup.shared_files.length - 1 && <Divider sx={{ my: 0.5 }} />}
+                              </React.Fragment>
+                            ))}
+                          </List>
+                        </AccordionDetails>
+                      </Accordion>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
       </Box>
 
       {/* Quick Sharing Tips */}
@@ -761,33 +955,6 @@ Are you sure you want to revoke ${username}'s access to "${filename}"?`;
         </Box>
       </Paper>
 
-      {/* Action Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-      >
-        <MenuItem onClick={() => {
-          if (menuFileId) handleViewFile(menuFileId);
-          handleMenuClose();
-        }}>
-          <Visibility sx={{ mr: 1 }} />
-          View
-        </MenuItem>
-        <MenuItem onClick={() => {
-          if (menuFileId) {
-            const file = sharedWithMeGroups
-              .flatMap(group => group.shared_files)
-              .find(f => f.file_id === menuFileId);
-            if (file) handleDownloadFile(menuFileId, file.display_name);
-          }
-          handleMenuClose();
-        }}>
-          <Download sx={{ mr: 1 }} />
-          Download
-        </MenuItem>
-      </Menu>
-
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
@@ -798,7 +965,7 @@ Are you sure you want to revoke ${username}'s access to "${filename}"?`;
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Container>
+    </Box>
   );
 };
 

@@ -11,16 +11,15 @@ import {
   Alert,
   Snackbar,
   CircularProgress,
-  IconButton,
-  Badge,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Save as SaveIcon,
   Security as SecurityIcon,
-  PhotoCamera,
-  CheckCircle,
-  Warning,
   Storage,
   CalendarToday,
 } from '@mui/icons-material';
@@ -41,8 +40,8 @@ interface UserProfile {
 const EditProfile: React.FC = () => {
   const auth = useContext(AuthContext);
   const [saving, setSaving] = useState(false);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [infoDialog, setInfoDialog] = useState({ open: false, title: '', content: '' });
   
   const [profile, setProfile] = useState<UserProfile>({
     username: '',
@@ -62,17 +61,62 @@ const EditProfile: React.FC = () => {
     email: '',
   });
 
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const getRandomMemoji = (username: string): string => {
+    const memojis = ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🐤', '🦄', '🐝', '🦋', '🐌', '🐛', '🦀', '🐙', '🦑', '🦐', '🐠', '🐟', '🐡', '🐢', '🦎', '🐍', '🦖', '🦕', '🐲', '🐉', '🦢', '🦜', '🦅', '🦆', '🦉', '🐺', '🐗', '🐴', '🦓', '🦒', '🐘', '🦏', '🦛', '🐪', '🐫', '🦘', '🐃', '🐂', '🐄', '🐎', '🐖', '🐏', '🐑', '🐐', '🦌', '🐕', '🐩', '🐈', '🐓', '🦃', '🕊️', '🐇', '🐁', '🐀', '🐿️', '🦔'];
+    
+    // Generate a consistent index based on username
+    let hash = 0;
+    for (let i = 0; i < username.length; i++) {
+      const char = username.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    return memojis[Math.abs(hash) % memojis.length];
+  };
 
   const loadProfile = useCallback(async () => {
     if (auth?.user) {
-      const userProfile = {
+      let userProfile = {
         ...auth.user,
         first_name: auth.user.first_name || '',
         last_name: auth.user.last_name || '',
         storage_used: auth.user.storage_used || 0,
         avatar_url: auth.user.avatar_url || '',
+        created_at: auth.user.created_at || new Date().toISOString(),
       };
+      
+      // Try to load more detailed user info from API
+      try {
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          // Load user profile
+          const profileResponse = await fetch('http://localhost:8000/api/user/profile', {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          
+          if (profileResponse.ok) {
+            const apiUserData = await profileResponse.json();
+            userProfile = {
+              ...userProfile,
+              ...apiUserData,
+              created_at: apiUserData.created_at || userProfile.created_at,
+            };
+          }
+
+          // Load storage info separately
+          const storageResponse = await fetch('http://localhost:8000/api/files/storage/info', {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          
+          if (storageResponse.ok) {
+            const storageData = await storageResponse.json();
+            userProfile.storage_used = storageData.storage_used || 0;
+          }
+        }
+      } catch (error) {
+        console.warn('Could not load detailed user profile:', error);
+      }
       
       setProfile(userProfile);
       setProfileForm({
@@ -89,50 +133,6 @@ const EditProfile: React.FC = () => {
 
   const showSnackbar = (message: string, severity: 'success' | 'error') => {
     setSnackbar({ open: true, message, severity });
-  };
-
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      showSnackbar('Please select an image file', 'error');
-      return;
-    }
-
-    // Validate file size (2MB limit)
-    if (file.size > 2 * 1024 * 1024) {
-      showSnackbar('Image size must be less than 2MB', 'error');
-      return;
-    }
-
-    setUploadingAvatar(true);
-    
-    try {
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setAvatarPreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-
-      // In a real app, upload to server
-      // const formData = new FormData();
-      // formData.append('avatar', file);
-      // const response = await uploadAvatar(formData);
-      
-      // For now, just simulate upload
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      showSnackbar('Profile picture updated successfully!', 'success');
-    } catch (error) {
-      console.error('Avatar upload error:', error);
-      showSnackbar('Failed to upload profile picture', 'error');
-      setAvatarPreview(null);
-    } finally {
-      setUploadingAvatar(false);
-    }
   };
 
   const handleSaveProfile = async () => {
@@ -174,6 +174,14 @@ const EditProfile: React.FC = () => {
       month: 'long', 
       day: 'numeric' 
     });
+  };
+
+  const showInfoDialog = (title: string, content: string) => {
+    setInfoDialog({ open: true, title, content });
+  };
+
+  const handleCloseDialog = () => {
+    setInfoDialog({ open: false, title: '', content: '' });
   };
 
   if (!auth?.user) {
@@ -222,72 +230,25 @@ const EditProfile: React.FC = () => {
               
               {/* Avatar Section */}
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-                <Badge
-                  overlap="circular"
-                  anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                  badgeContent={
-                    <IconButton
-                      component="label"
-                      size="small"
-                      sx={{
-                        bgcolor: 'primary.main',
-                        color: 'white',
-                        '&:hover': { bgcolor: 'primary.dark' },
-                        width: 32,
-                        height: 32,
-                      }}
-                    >
-                      {uploadingAvatar ? (
-                        <CircularProgress size={16} color="inherit" />
-                      ) : (
-                        <PhotoCamera sx={{ fontSize: 16 }} />
-                      )}
-                      <input
-                        type="file"
-                        hidden
-                        accept="image/*"
-                        onChange={handleAvatarUpload}
-                        disabled={uploadingAvatar}
-                      />
-                    </IconButton>
-                  }
+                <Avatar 
+                  sx={{ 
+                    width: 100, 
+                    height: 100,
+                    fontSize: '3rem',
+                    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+                    border: '3px solid rgba(99, 102, 241, 0.2)',
+                  }}
                 >
-                  <Avatar 
-                    src={avatarPreview || profile.avatar_url}
-                    sx={{ 
-                      width: 100, 
-                      height: 100,
-                      fontSize: '2.5rem',
-                      background: avatarPreview || profile.avatar_url 
-                        ? 'transparent' 
-                        : 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                    }}
-                  >
-                    {!avatarPreview && !profile.avatar_url && profile.username?.charAt(0)?.toUpperCase()}
-                  </Avatar>
-                </Badge>
+                  {getRandomMemoji(profile.username || 'user')}
+                </Avatar>
                 
                 <Box sx={{ ml: 3 }}>
                   <Typography variant="h6" sx={{ fontWeight: 600 }}>
                     {profile.username}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Click the camera icon to update your profile picture
+                    Your unique avatar is generated from your username
                   </Typography>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Chip
-                      size="small"
-                      icon={<CheckCircle sx={{ fontSize: '16px !important' }} />}
-                      label={profile.is_active ? "Active" : "Inactive"}
-                      color={profile.is_active ? "success" : "error"}
-                    />
-                    <Chip
-                      size="small"
-                      icon={profile.is_verified ? <CheckCircle sx={{ fontSize: '16px !important' }} /> : <Warning sx={{ fontSize: '16px !important' }} />}
-                      label={profile.is_verified ? "Verified" : "Unverified"}
-                      color={profile.is_verified ? "success" : "warning"}
-                    />
-                  </Box>
                 </Box>
               </Box>
 
@@ -367,44 +328,6 @@ const EditProfile: React.FC = () => {
 
         {/* Account Stats & Security */}
         <Box sx={{ flex: '1 1 350px' }}>
-          {/* Account Stats */}
-          <Card sx={{ mb: 3 }}>
-            <CardContent sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
-                Account Statistics
-              </Typography>
-              
-              <Box sx={{ mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Storage sx={{ mr: 2, color: 'primary.main' }} />
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    Storage Used
-                  </Typography>
-                </Box>
-                <Typography variant="h6" sx={{ fontWeight: 600, color: 'primary.main', mb: 1 }}>
-                  {formatFileSize(profile.storage_used)}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  of 1 GB available
-                </Typography>
-              </Box>
-
-              <Divider sx={{ my: 2 }} />
-
-              <Box sx={{ mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <CalendarToday sx={{ mr: 2, color: 'success.main' }} />
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                    Member Since
-                  </Typography>
-                </Box>
-                <Typography variant="body1" sx={{ fontWeight: 600, color: 'text.primary' }}>
-                  {formatDate(profile.created_at)}
-                </Typography>
-              </Box>
-            </CardContent>
-          </Card>
-
           {/* Security Information */}
           <Card>
             <CardContent sx={{ p: 3 }}>
@@ -425,6 +348,17 @@ const EditProfile: React.FC = () => {
                   color="primary" 
                   variant="outlined"
                   size="small"
+                  clickable
+                  onClick={() => showInfoDialog(
+                    'Zero-Knowledge Proof Authentication',
+                    'Zero-Knowledge Proofs (ZKP) allow you to prove you know a secret (your private key) without revealing the secret itself. This cryptographic method ensures maximum privacy - your private key never leaves your device, yet the server can verify your identity. Our implementation uses SECP256k1 elliptic curve cryptography with Schnorr signatures, providing bank-level security for your files.'
+                  )}
+                  sx={{
+                    cursor: 'pointer',
+                    '&:hover': {
+                      backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    },
+                  }}
                 />
               </Box>
 
@@ -437,6 +371,17 @@ const EditProfile: React.FC = () => {
                   color="success" 
                   variant="outlined"
                   size="small"
+                  clickable
+                  onClick={() => showInfoDialog(
+                    'SECP256k1 Elliptic Curve Cryptography',
+                    'SECP256k1 is the cryptographic curve used by Bitcoin and many other cryptocurrencies. It provides 256-bit security through elliptic curve cryptography, which is considered one of the strongest encryption methods available. This curve is specifically chosen for its security properties and resistance to quantum computing attacks when used with proper key sizes.'
+                  )}
+                  sx={{
+                    cursor: 'pointer',
+                    '&:hover': {
+                      backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    },
+                  }}
                 />
               </Box>
 
@@ -465,6 +410,33 @@ const EditProfile: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Information Dialog */}
+      <Dialog 
+        open={infoDialog.open} 
+        onClose={handleCloseDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ 
+          fontWeight: 600,
+          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+        }}>
+          {infoDialog.title}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mt: 1, lineHeight: 1.6 }}>
+            {infoDialog.content}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog} variant="contained">
+            Got it
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

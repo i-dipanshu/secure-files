@@ -150,17 +150,42 @@ const theme = createTheme({
             transform: 'translateY(-1px)',
           },
           transition: 'all 0.2s ease-in-out',
+          '&.Mui-disabled': {
+            background: 'linear-gradient(135deg, rgba(148, 163, 184, 0.15) 0%, rgba(203, 213, 225, 0.1) 100%)',
+            color: 'rgba(100, 116, 139, 0.6)',
+            border: '1px solid rgba(148, 163, 184, 0.2)',
+            boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.05)',
+            '& .MuiButton-startIcon, & .MuiButton-endIcon': {
+              color: 'rgba(100, 116, 139, 0.5)',
+            },
+          },
         },
         contained: {
           background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
           '&:hover': {
             background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
           },
+          '&.Mui-disabled': {
+            background: 'linear-gradient(135deg, rgba(148, 163, 184, 0.25) 0%, rgba(203, 213, 225, 0.2) 100%)',
+            color: 'rgba(255, 255, 255, 0.7)',
+            boxShadow: 'inset 0 1px 2px rgba(0, 0, 0, 0.1)',
+            '& .MuiButton-startIcon, & .MuiButton-endIcon': {
+              color: 'rgba(255, 255, 255, 0.6)',
+            },
+          },
         },
         outlined: {
           borderWidth: '1.5px',
           '&:hover': {
             borderWidth: '1.5px',
+          },
+          '&.Mui-disabled': {
+            background: 'rgba(248, 250, 252, 0.9)',
+            borderColor: 'rgba(148, 163, 184, 0.3)',
+            color: 'rgba(100, 116, 139, 0.6)',
+            '& .MuiButton-startIcon, & .MuiButton-endIcon': {
+              color: 'rgba(100, 116, 139, 0.5)',
+            },
           },
         },
       },

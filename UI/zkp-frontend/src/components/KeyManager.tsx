@@ -40,6 +40,7 @@ const KeyManager: React.FC = () => {
   const [importData, setImportData] = useState('');
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+  const [infoDialog, setInfoDialog] = useState({ open: false, title: '', content: '' });
 
   useEffect(() => {
     loadCurrentKey();
@@ -154,6 +155,14 @@ const KeyManager: React.FC = () => {
     setSuccess('Copied to clipboard!');
   };
 
+  const showInfoDialog = (title: string, content: string) => {
+    setInfoDialog({ open: true, title, content });
+  };
+
+  const handleCloseDialog = () => {
+    setInfoDialog({ open: false, title: '', content: '' });
+  };
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       {/* Header */}
@@ -196,12 +205,23 @@ const KeyManager: React.FC = () => {
                     icon={<SecurityIcon />} 
                     label="Private Key Stored" 
                     color="success" 
-                    sx={{ mr: 2 }}
+                    sx={{ mr: 2, cursor: 'pointer' }}
+                    clickable
+                    onClick={() => showInfoDialog(
+                      'Private Key Storage',
+                      'Your private key is securely stored in your browser\'s local storage. This means it never leaves your device and is not transmitted to our servers. The key is encrypted using your browser\'s built-in security mechanisms. For maximum security, consider exporting and storing your key in a hardware wallet or secure offline location.'
+                    )}
                   />
                   <Chip 
                     icon={<KeyIcon />} 
                     label="SECP256k1" 
-                    variant="outlined" 
+                    variant="outlined"
+                    sx={{ cursor: 'pointer' }}
+                    clickable
+                    onClick={() => showInfoDialog(
+                      'SECP256k1 Elliptic Curve Cryptography',
+                      'SECP256k1 is the same elliptic curve used by Bitcoin and many other cryptocurrencies. It provides 256-bit security and is considered one of the most secure and battle-tested cryptographic curves available. This curve enables efficient generation of public-private key pairs and digital signatures while maintaining extremely high security standards against cryptographic attacks.'
+                    )}
                   />
                 </Box>
                 
@@ -357,41 +377,6 @@ const KeyManager: React.FC = () => {
             </Card>
           </Box>
         </Box>
-
-        {/* Best Practices */}
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Security Best Practices
-          </Typography>
-          
-          <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', md: 'row' } }}>
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="subtitle2" gutterBottom color="primary">
-                ✅ Do:
-              </Typography>
-              <Typography variant="body2" component="div">
-                • Backup your private keys securely<br />
-                • Use a hardware wallet for long-term storage<br />
-                • Keep your keys in a secure, offline location<br />
-                • Generate keys on a secure device<br />
-                • Verify your backups work before deleting originals
-              </Typography>
-            </Box>
-            
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="subtitle2" gutterBottom color="error">
-                ❌ Don't:
-              </Typography>
-              <Typography variant="body2" component="div">
-                • Share your private keys with anyone<br />
-                • Store keys in plain text files<br />
-                • Send keys via email or messaging<br />
-                • Use the same key for multiple services<br />
-                • Generate keys on compromised devices
-              </Typography>
-            </Box>
-          </Box>
-        </Paper>
       </Box>
 
       {/* New Key Dialog */}
@@ -471,17 +456,22 @@ const KeyManager: React.FC = () => {
               type="file"
               onChange={handleFileImport}
             />
-            <label htmlFor="key-file-import">
-              <Button
-                variant="outlined"
-                component="span"
-                startIcon={<UploadIcon />}
-                fullWidth
-                sx={{ mb: 2 }}
-              >
-                Choose Key Backup File
-              </Button>
-            </label>
+            <Button
+              variant="outlined"
+              component="label"
+              htmlFor="key-file-import"
+              startIcon={<UploadIcon />}
+              fullWidth
+              sx={{ 
+                mb: 2,
+                cursor: 'pointer',
+                '&:hover': {
+                  backgroundColor: 'rgba(25, 118, 210, 0.04)',
+                },
+              }}
+            >
+              Choose Key Backup File
+            </Button>
           </Box>
           
           <Typography variant="body2" color="text.secondary" gutterBottom>
@@ -508,6 +498,33 @@ const KeyManager: React.FC = () => {
             disabled={!importData}
           >
             Import
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Information Dialog */}
+      <Dialog 
+        open={infoDialog.open} 
+        onClose={handleCloseDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ 
+          fontWeight: 600,
+          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+        }}>
+          {infoDialog.title}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mt: 1, lineHeight: 1.6 }}>
+            {infoDialog.content}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog} variant="contained">
+            Got it
           </Button>
         </DialogActions>
       </Dialog>

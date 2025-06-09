@@ -985,6 +985,24 @@ Are you absolutely sure you want to delete this file?`;
             variant="contained"
             disabled={creatingShare || !shareEmail.trim()}
             startIcon={creatingShare ? <CircularProgress size={16} /> : <LinkIcon />}
+            sx={{
+              background: (creatingShare || !shareEmail.trim()) 
+                ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(5, 150, 105, 0.2) 100%)'
+                : 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+              '&.Mui-disabled': {
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.3) 0%, rgba(5, 150, 105, 0.2) 100%)',
+                color: 'rgba(255, 255, 255, 0.6)',
+                '& .MuiButton-startIcon': {
+                  color: 'rgba(255, 255, 255, 0.6)',
+                },
+              },
+              '&:hover:not(.Mui-disabled)': {
+                background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 8px 16px -4px rgba(16, 185, 129, 0.4)',
+              },
+              transition: 'all 0.2s ease-in-out',
+            }}
           >
             Share with Users
           </Button>

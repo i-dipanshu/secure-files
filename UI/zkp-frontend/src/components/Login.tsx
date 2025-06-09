@@ -347,11 +347,22 @@ const Login: React.FC = () => {
                     <Button
                       component="label"
                       variant="outlined"
-                      size="small"
+                      size="medium"
                       fullWidth
-                      sx={{ mb: 1 }}
+                      startIcon={<UploadIcon />}
+                      sx={{ 
+                        mb: 1,
+                        borderStyle: 'dashed',
+                        borderWidth: '2px',
+                        py: 1.5,
+                        '&:hover': {
+                          borderStyle: 'dashed',
+                          borderWidth: '2px',
+                          backgroundColor: 'rgba(99, 102, 241, 0.05)',
+                        },
+                      }}
                     >
-                      Choose File
+                      Choose Key File (.json)
                       <input
                         type="file"
                         hidden
@@ -360,8 +371,8 @@ const Login: React.FC = () => {
                       />
                     </Button>
                     
-                    <Typography variant="caption" color="text.secondary">
-                      Upload your exported key pair JSON file
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center' }}>
+                      Upload your exported ZKP key pair file
                     </Typography>
                   </CardContent>
                 </Card>
