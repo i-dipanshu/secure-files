@@ -510,16 +510,27 @@ const FileSharing: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.download_url) {
-          // Create a temporary link to trigger download
-          const link = document.createElement('a');
-          link.href = data.download_url;
-          link.download = file.filename || 'download';
-          link.target = '_blank';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          showSnackbar('Download started', 'success');
+          // Fetch the actual file content as blob
+          const fileResponse = await fetch(data.download_url);
+          if (fileResponse.ok) {
+            const blob = await fileResponse.blob();
+            
+            // Create blob URL and trigger download
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = file.display_name || file.filename || 'download';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Clean up blob URL
+            window.URL.revokeObjectURL(blobUrl);
+            
+            showSnackbar('Download started', 'success');
+          } else {
+            showSnackbar('Failed to download file content', 'error');
+          }
         } else {
           showSnackbar('Failed to generate download URL', 'error');
         }
