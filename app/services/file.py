@@ -37,8 +37,7 @@ class FileService:
         filename: str,
         display_name: Optional[str] = None,
         description: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        is_public: bool = False
+        tags: Optional[List[str]] = None
     ) -> File:
         """
         Upload a new file for the user.
@@ -51,7 +50,6 @@ class FileService:
             display_name: Display name for the file (optional)
             description: File description (optional)
             tags: List of tags (optional)
-            is_public: Whether file is publicly accessible
             
         Returns:
             Created File object
@@ -91,7 +89,7 @@ class FileService:
                 mime_type=mime_type,
                 file_hash=file_hash,
                 status=FileStatus.ACTIVE,
-                is_public=is_public,
+                is_public=False,  # Always private now
                 owner_id=user.id,
                 description=description,
                 tags=",".join(tags) if tags else None
@@ -262,8 +260,7 @@ class FileService:
         user: User,
         display_name: Optional[str] = None,
         description: Optional[str] = None,
-        tags: Optional[List[str]] = None,
-        is_public: Optional[bool] = None
+        tags: Optional[List[str]] = None
     ) -> Optional[File]:
         """
         Update file metadata.
@@ -275,7 +272,6 @@ class FileService:
             display_name: New display name
             description: New description
             tags: New tags list
-            is_public: New public status
             
         Returns:
             Updated File object if successful, None otherwise
@@ -295,8 +291,6 @@ class FileService:
             file_obj.description = description
         if tags is not None:
             file_obj.tags = ",".join(tags) if tags else None
-        if is_public is not None:
-            file_obj.is_public = is_public
         
         file_obj.updated_at = datetime.now(timezone.utc)
         
@@ -476,11 +470,7 @@ class FileService:
         if file_obj.status != FileStatus.ACTIVE:
             return False
         
-        # Public files are readable by anyone
-        if file_obj.is_public and permission_type == FilePermissionType.READ:
-            return True
-        
-        # No user provided
+        # No user provided - access denied since we removed public files
         if not user:
             return False
         

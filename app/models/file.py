@@ -6,7 +6,7 @@ and sharing with proper access control and audit trails.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from enum import Enum
 
@@ -97,7 +97,7 @@ class File(Base):
         Boolean,
         default=False,
         nullable=False,
-        comment="Whether file is publicly accessible"
+        comment="DEPRECATED: Whether file is publicly accessible (always False now)"
     )
     
     # Ownership
@@ -178,7 +178,6 @@ class File(Base):
             "mime_type": self.mime_type,
             "file_hash": self.file_hash,
             "status": self.status.value,
-            "is_public": self.is_public,
             "owner_id": str(self.owner_id),
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),

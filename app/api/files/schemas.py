@@ -19,7 +19,6 @@ class FileUploadRequest(BaseModel):
     display_name: Optional[str] = Field(None, description="Display name for the file")
     description: Optional[str] = Field(None, description="File description")
     tags: Optional[List[str]] = Field(None, description="File tags for organization")
-    is_public: bool = Field(False, description="Whether file is publicly accessible")
     
     @validator("display_name")
     def validate_display_name(cls, v):
@@ -43,7 +42,6 @@ class FileMetadataUpdate(BaseModel):
     display_name: Optional[str] = Field(None, description="New display name")
     description: Optional[str] = Field(None, description="New description")
     tags: Optional[List[str]] = Field(None, description="New tags")
-    is_public: Optional[bool] = Field(None, description="New public status")
     
     @validator("display_name")
     def validate_display_name(cls, v):
@@ -71,7 +69,6 @@ class FileInfo(BaseModel):
     mime_type: str = Field(..., description="MIME type")
     file_hash: str = Field(..., description="SHA-256 hash")
     status: str = Field(..., description="File status")
-    is_public: bool = Field(..., description="Whether file is public")
     owner_id: str = Field(..., description="Owner user ID")
     created_at: str = Field(..., description="Creation timestamp")
     updated_at: str = Field(..., description="Last update timestamp")
@@ -177,7 +174,6 @@ class FileSearchRequest(BaseModel):
     date_to: Optional[datetime] = Field(None, description="Filter to date")
     min_size: Optional[int] = Field(None, description="Minimum file size")
     max_size: Optional[int] = Field(None, description="Maximum file size")
-    is_public: Optional[bool] = Field(None, description="Filter by public status")
     status: Optional[FileStatus] = Field(None, description="Filter by status")
     limit: int = Field(100, description="Maximum results to return")
     offset: int = Field(0, description="Number of results to skip")

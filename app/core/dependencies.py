@@ -75,50 +75,6 @@ async def get_current_user(
         )
 
 
-async def get_optional_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
-    db: Annotated[AsyncSession, Depends(get_db)] = None
-) -> Optional[User]:
-    """
-    Get current user if authentication token is provided, otherwise return None.
-    
-    This allows endpoints to accept both authenticated and anonymous requests.
-    
-    Args:
-        credentials: Optional JWT credentials from Authorization header
-        db: Database session
-        
-    Returns:
-        Current authenticated user if token is provided and valid, None otherwise
-    """
-    if not credentials:
-        return None
-    
-    try:
-        # Verify JWT token
-        payload = auth_service.verify_token(credentials.credentials)
-        
-        # Check if token verification failed (returns None)
-        if payload is None:
-            return None
-        
-        user_id = payload.get("sub")
-        
-        if user_id is None:
-            return None
-        
-        # Get user from database
-        user = await auth_service.get_user_by_id(db, user_id)
-        if user is None or not user.is_active:
-            return None
-        
-        return user
-        
-    except Exception:
-        # If any error occurs, just return None (allow anonymous access)
-        return None
-
-
 async def get_current_active_user(
     current_user: Annotated[User, Depends(get_current_user)]
 ) -> User:
@@ -145,5 +101,4 @@ async def get_current_active_user(
 # Type aliases for dependency injection
 DatabaseDep = Annotated[AsyncSession, Depends(get_db)]
 CurrentUser = Annotated[User, Depends(get_current_user)]
-OptionalCurrentUser = Annotated[Optional[User], Depends(get_optional_current_user)]
 ActiveUser = Annotated[User, Depends(get_current_active_user)] 

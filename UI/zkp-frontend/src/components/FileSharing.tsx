@@ -38,6 +38,7 @@ import {
   Public as PublicIcon,
   Schedule as ScheduleIcon,
   Refresh as RefreshIcon,
+  Download,
 } from '@mui/icons-material';
 import { zkpService } from '../services/zkpService';
 
@@ -48,11 +49,15 @@ interface SharedFile {
   file_size: number;
   mime_type: string;
   created_at: string;
-  is_public: boolean;
   share_url?: string;
   shared_with: string[];
   access_count: number;
   expires_at?: string;
+  owner?: {
+    username: string;
+  };
+  permission_type?: string;
+  is_owner?: boolean;
 }
 
 interface ShareLink {
@@ -60,7 +65,6 @@ interface ShareLink {
   file_id: string;
   filename: string;
   share_url: string;
-  is_public: boolean;
   expires_at?: string;
   access_count: number;
   created_at: string;
@@ -78,11 +82,10 @@ const FileSharing: React.FC = () => {
 
   // Share form state
   const [shareForm, setShareForm] = useState({
-    is_public: false,
-    expires_in_hours: 24,
     shared_users: '',
+    expires_in_hours: 24,
     allow_download: true,
-    require_auth: false,
+    require_auth: true,
   });
 
   const loadSharedFiles = useCallback(async () => {
@@ -119,9 +122,10 @@ const FileSharing: React.FC = () => {
           shared_with: file.is_public ? [] : ['Private share'],
           access_count: file.view_count || 0,
           expires_at: file.expires_at,
-          owner: file.owner,
+          owner: file.owner ? { username: file.owner.username } : undefined,
           permission_type: file.permission_type,
           shared_at: file.shared_at,
+          is_owner: false, // These are files shared WITH the user, not owned by them
         }));
         
         setFiles(transformedFiles);
@@ -183,10 +187,8 @@ const FileSharing: React.FC = () => {
                 
                 return {
                   ...file,
-                  is_public: file.is_public || false,
                   shared_with: permissions.map((p: any) => p.username),
                   access_count: file.view_count || 0,
-                  share_url: file.is_public ? `http://localhost:3000/public/${file.file_id}` : undefined,
                   permissions: permissions,
                 };
               }
@@ -198,9 +200,9 @@ const FileSharing: React.FC = () => {
           })
         );
 
-        // Filter out files that have sharing info (either public or have permissions)
+        // Filter out files that have sharing info (have permissions)
         const sharedFiles = filesWithSharingInfo
-          .filter(file => file && (file.is_public || (file.shared_with && file.shared_with.length > 0)))
+          .filter(file => file && (file.shared_with && file.shared_with.length > 0))
           .map(file => ({
             file_id: file.file_id,
             filename: file.filename,
@@ -208,11 +210,10 @@ const FileSharing: React.FC = () => {
             file_size: file.file_size,
             mime_type: file.mime_type,
             created_at: file.created_at,
-            is_public: file.is_public,
-            share_url: file.share_url,
             shared_with: file.shared_with,
             access_count: file.access_count,
             expires_at: file.expires_at,
+            is_owner: true, // These are files owned by the user
           }));
 
         setFiles(sharedFiles);
@@ -250,8 +251,7 @@ const FileSharing: React.FC = () => {
         id: `link_${file.file_id || index}`,
         file_id: file.file_id || `file_${index}`,
         filename: file.display_name || file.filename || `file_${index}.pdf`,
-        share_url: `http://localhost:3000/share/${file.file_id || `file_${index}`}?token=${Math.random().toString(36).substr(2, 16)}`,
-        is_public: index % 2 === 0, // Alternate between public and private
+        share_url: `http://localhost:3000/public/${file.file_id || `file_${index}`}`,
         access_count: Math.floor(Math.random() * 30) + 1,
         expires_at: index % 3 === 0 ? new Date(Date.now() + (Math.floor(Math.random() * 10) + 1) * 24 * 60 * 60 * 1000).toISOString() : undefined,
         created_at: new Date(Date.now() - Math.floor(Math.random() * 7) * 24 * 60 * 60 * 1000).toISOString(),
@@ -264,8 +264,7 @@ const FileSharing: React.FC = () => {
             id: 'demo_link1',
             file_id: 'demo1',
             filename: 'sample-document.pdf',
-            share_url: `http://localhost:3000/share/demo1?token=${Math.random().toString(36).substr(2, 16)}`,
-            is_public: true,
+            share_url: `http://localhost:3000/public/demo1`,
             access_count: 5,
             created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
           },
@@ -295,96 +294,55 @@ const FileSharing: React.FC = () => {
         return;
       }
 
-      if (shareForm.is_public) {
-        // For public sharing, update the file to be public
-        const response = await fetch(`http://localhost:8000/api/files/${selectedFile.file_id}`, {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            is_public: true,
-          }),
-        });
+      // For user sharing, use the backend API for each user
+      const sharedUsers = shareForm.shared_users.split(',').map(u => u.trim()).filter(u => u);
+      const successfulShares: string[] = [];
+      const failedShares: string[] = [];
 
-        if (response.ok) {
-          const publicUrl = `http://localhost:3000/public/${selectedFile.file_id}`;
-          showSnackbar(`File made public! Share URL: ${publicUrl}`, 'success');
-        } else {
-          const errorData = await response.json().catch(() => ({ detail: 'Failed to make file public' }));
-          const errorMessage = typeof errorData === 'string' ? errorData : 
-                              errorData.detail || 
-                              (errorData.message ? errorData.message : 'Failed to make file public');
-          showSnackbar(errorMessage, 'error');
-          return;
-        }
-      } else {
-        // For private sharing, share with specific users
-        const users = shareForm.shared_users.split(',').map(u => u.trim()).filter(u => u);
-        if (users.length === 0) {
-          showSnackbar('Please specify at least one user to share with', 'error');
-          return;
-        }
+      for (const user of sharedUsers) {
+        try {
+          const response = await fetch(`http://localhost:8000/api/files/${selectedFile.file_id}/share`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              target_user: user,
+              permission_type: 'read', // Default permission
+              expires_hours: shareForm.expires_in_hours,
+            }),
+          });
 
-        const successfulShares: string[] = [];
-        const failedShares: string[] = [];
-
-        for (const user of users) {
-          try {
-            const shareResponse = await fetch(`http://localhost:8000/api/files/${selectedFile.file_id}/share`, {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                target_user: user,
-                permission_type: 'read',
-                expires_hours: shareForm.expires_in_hours > 0 ? shareForm.expires_in_hours : undefined,
-              }),
-            });
-
-            if (shareResponse.ok) {
-              const shareData = await shareResponse.json();
-              successfulShares.push(shareData.permission?.username || user);
-            } else {
-              const errorData = await shareResponse.json().catch(() => ({ detail: 'Share failed' }));
-              console.error(`Failed to share with ${user}:`, errorData);
-              failedShares.push(user);
-            }
-          } catch (error) {
-            console.error(`Error sharing with ${user}:`, error);
+          if (response.ok) {
+            const responseData = await response.json();
+            console.log(`Successfully shared with ${user}:`, responseData);
+            successfulShares.push(user);
+          } else {
+            const errorData = await response.json().catch(() => ({ detail: 'Share failed' }));
+            console.error(`Failed to share with ${user}:`, errorData);
             failedShares.push(user);
           }
-        }
-
-        // Show results
-        if (successfulShares.length > 0) {
-          showSnackbar(`File shared successfully with: ${successfulShares.join(', ')}`, 'success');
-        }
-        if (failedShares.length > 0) {
-          showSnackbar(`Failed to share with: ${failedShares.join(', ')}`, 'error');
-        }
-
-        if (successfulShares.length === 0) {
-          return; // Don't close dialog if all shares failed
+        } catch (error) {
+          console.error(`Error sharing with ${user}:`, error);
+          failedShares.push(user);
         }
       }
 
-      // Close dialog and refresh data
-      setShareDialogOpen(false);
-      setSelectedFile(null);
-      setShareForm({
-        is_public: false,
-        expires_in_hours: 24,
-        shared_users: '',
-        allow_download: true,
-        require_auth: false,
-      });
-      await loadData();
+      // Show results
+      if (successfulShares.length > 0) {
+        showSnackbar(`File shared successfully with: ${successfulShares.join(', ')}`, 'success');
+      }
+      if (failedShares.length > 0) {
+        showSnackbar(`Failed to share with: ${failedShares.join(', ')}`, 'error');
+      }
+
+      if (successfulShares.length > 0) {
+        setShareDialogOpen(false);
+        await loadData(); // Refresh to update any sharing indicators
+      }
     } catch (error) {
-      console.error('Share error:', error);
+      console.error('Share creation error:', error);
       showSnackbar('Failed to share file', 'error');
     }
   };
@@ -458,6 +416,12 @@ const FileSharing: React.FC = () => {
 
   const openShareDialog = (file: SharedFile) => {
     setSelectedFile(file);
+    setShareForm({
+      shared_users: '',
+      expires_in_hours: 24,
+      allow_download: true,
+      require_auth: true,
+    });
     setShareDialogOpen(true);
   };
 
@@ -490,6 +454,42 @@ const FileSharing: React.FC = () => {
     }
     
     return date.toLocaleDateString();
+  };
+
+  const handleDownloadFile = async (file: SharedFile) => {
+    try {
+      const token = zkpService.getToken();
+      if (!token) {
+        showSnackbar('Authentication required', 'error');
+        return;
+      }
+
+      // Use regular authenticated endpoint for all files
+      const downloadEndpoint = `http://localhost:8000/api/files/${file.file_id}/download`;
+
+      const response = await fetch(downloadEndpoint, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.download_url) {
+          // Open download URL in new tab
+          window.open(data.download_url, '_blank');
+          showSnackbar('Download started', 'success');
+        } else {
+          showSnackbar('Failed to generate download URL', 'error');
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({ detail: 'Download failed' }));
+        showSnackbar(errorData.detail || 'Download failed', 'error');
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      showSnackbar('Download failed', 'error');
+    }
   };
 
   if (loading) {
@@ -601,14 +601,6 @@ const FileSharing: React.FC = () => {
                             {formatFileSize(file.file_size)} • {file.mime_type}
                           </Typography>
                           <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            {file.is_public && (
-                              <Chip
-                                icon={<PublicIcon />}
-                                label="Public"
-                                size="small"
-                                color="success"
-                              />
-                            )}
                             {file.shared_with.length > 0 && (
                               <Chip
                                 icon={<PeopleIcon />}
@@ -636,21 +628,42 @@ const FileSharing: React.FC = () => {
                       </Box>
                     </CardContent>
                     <CardActions>
-                      <Button
-                        size="small"
-                        startIcon={<ShareIcon />}
-                        onClick={() => openShareDialog(file)}
-                      >
-                        Manage Sharing
-                      </Button>
-                      {file.share_url && (
-                        <Button
-                          size="small"
-                          startIcon={<CopyIcon />}
-                          onClick={() => handleCopyShareLink(file.share_url!)}
-                        >
-                          Copy Link
-                        </Button>
+                      {file.is_owner ? (
+                        // If user owns the file, show sharing management options
+                        <>
+                          <Button
+                            size="small"
+                            startIcon={<ShareIcon />}
+                            onClick={() => openShareDialog(file)}
+                          >
+                            Manage Sharing
+                          </Button>
+                          {file.share_url && (
+                            <Button
+                              size="small"
+                              startIcon={<CopyIcon />}
+                              onClick={() => handleCopyShareLink(file.share_url!)}
+                            >
+                              Copy Link
+                            </Button>
+                          )}
+                        </>
+                      ) : (
+                        // If file is shared with user, show access options
+                        <>
+                          <Button
+                            size="small"
+                            startIcon={<Download />}
+                            onClick={() => handleDownloadFile(file)}
+                          >
+                            Download
+                          </Button>
+                          {file.owner && (
+                            <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+                              Shared by {file.owner.username}
+                            </Typography>
+                          )}
+                        </>
                       )}
                     </CardActions>
                   </Card>
@@ -666,15 +679,10 @@ const FileSharing: React.FC = () => {
         <Typography variant="h6" gutterBottom>
           Sharing Guidelines
         </Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
-          <Alert severity="info" sx={{ height: '100%' }}>
-            <Typography variant="body2">
-              <strong>Public Sharing:</strong> Anyone with the link can access the file without authentication.
-            </Typography>
-          </Alert>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
           <Alert severity="warning" sx={{ height: '100%' }}>
             <Typography variant="body2">
-              <strong>Private Sharing:</strong> Only specific users can access the file. They must be registered.
+              <strong>User Sharing:</strong> Only specific users can access the file. They must be registered and authenticated.
             </Typography>
           </Alert>
           <Alert severity="success" sx={{ height: '100%' }}>
@@ -691,50 +699,57 @@ const FileSharing: React.FC = () => {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
-        <MenuItem onClick={() => {
+        {(() => {
           const file = files.find(f => f.file_id === menuFileId);
-          if (file) openShareDialog(file);
-          handleMenuClose();
-        }}>
-          <ShareIcon sx={{ mr: 1 }} />
-          Manage Sharing
-        </MenuItem>
-        <MenuItem onClick={() => {
-          if (menuFileId) handleRevokeShare(menuFileId);
-          handleMenuClose();
-        }}>
-          <DeleteIcon sx={{ mr: 1 }} />
-          Revoke Sharing
-        </MenuItem>
+          if (!file) return null;
+          
+          if (file.is_owner) {
+            // Show owner actions
+            return [
+              <MenuItem key="manage" onClick={() => {
+                openShareDialog(file);
+                handleMenuClose();
+              }}>
+                <ShareIcon sx={{ mr: 1 }} />
+                Manage Sharing
+              </MenuItem>,
+              <MenuItem key="revoke" onClick={() => {
+                handleRevokeShare(menuFileId!);
+                handleMenuClose();
+              }}>
+                <DeleteIcon sx={{ mr: 1 }} />
+                Revoke Sharing
+              </MenuItem>
+            ];
+          } else {
+            // Show recipient actions
+            return [
+              <MenuItem key="download" onClick={() => {
+                handleDownloadFile(file);
+                handleMenuClose();
+              }}>
+                <Download sx={{ mr: 1 }} />
+                Download
+              </MenuItem>
+            ];
+          }
+        })()}
       </Menu>
 
       {/* Share Dialog */}
       <Dialog open={shareDialogOpen} onClose={() => setShareDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Share File: {selectedFile?.display_name}</DialogTitle>
         <DialogContent>
-          <FormControlLabel
-            control={
-              <Switch 
-                checked={shareForm.is_public}
-                onChange={(e) => setShareForm({ ...shareForm, is_public: e.target.checked })}
-              />
-            }
-            label="Make publicly accessible"
-            sx={{ mb: 2 }}
+          <TextField
+            fullWidth
+            label="Share with users (usernames or emails)"
+            value={shareForm.shared_users}
+            onChange={(e) => setShareForm({ ...shareForm, shared_users: e.target.value })}
+            margin="normal"
+            helperText="Enter usernames or emails separated by commas (e.g., john_doe, jane@example.com)"
+            placeholder="username1, username2, user@email.com"
+            required
           />
-
-          {!shareForm.is_public && (
-            <TextField
-              fullWidth
-              label="Share with users (usernames or emails)"
-              value={shareForm.shared_users}
-              onChange={(e) => setShareForm({ ...shareForm, shared_users: e.target.value })}
-              margin="normal"
-              helperText="Enter usernames or emails separated by commas (e.g., john_doe, jane@example.com)"
-              placeholder="username1, username2, user@email.com"
-              required={!shareForm.is_public}
-            />
-          )}
 
           <TextField
             fullWidth
@@ -767,10 +782,10 @@ const FileSharing: React.FC = () => {
             label="Require authentication"
           />
 
-          {!shareForm.is_public && shareForm.shared_users && (
+          {shareForm.shared_users && (
             <Alert severity="info" sx={{ mt: 2 }}>
               <Typography variant="body2">
-                <strong>Private Sharing:</strong> Only the specified users will be able to access this file.
+                <strong>User Sharing:</strong> Only the specified users will be able to access this file.
               </Typography>
             </Alert>
           )}
@@ -783,9 +798,9 @@ const FileSharing: React.FC = () => {
             onClick={handleShareFile}
             variant="contained"
             startIcon={<ShareIcon />}
-            disabled={!shareForm.is_public && !shareForm.shared_users.trim()}
+            disabled={!shareForm.shared_users.trim()}
           >
-            Create Share Link
+            Share with Users
           </Button>
         </DialogActions>
       </Dialog>
