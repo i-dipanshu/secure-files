@@ -15,12 +15,20 @@ import {
   CardContent,
   Divider,
   Chip,
+  IconButton,
+  Tooltip,
+  LinearProgress,
 } from '@mui/material';
 import {
   Security as SecurityIcon,
   Key as KeyIcon,
   PersonAdd as PersonAddIcon,
-  CheckCircle as CheckCircleIcon,
+  ContentCopy,
+  Download,
+  ArrowBack,
+  Shield,
+  Verified,
+  Lock,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../App';
@@ -128,7 +136,7 @@ const Register: React.FC = () => {
         // Redirect to login after a delay
         setTimeout(() => {
           navigate('/login');
-        }, 2000);
+        }, 3000);
       } else {
         // Fix: Properly extract error message from potential object
         const errorMessage = typeof result?.error === 'string' ? result.error :
@@ -168,144 +176,208 @@ const Register: React.FC = () => {
     switch (step) {
       case 0:
         return (
-          <Box sx={{ mt: 2 }}>
-            <TextField
-              fullWidth
-              label="Username"
-              value={username}
-              onChange={(e) => {
-                setUsername(e.target.value);
-                if (e.target.value) validateUsername(e.target.value);
+          <Box sx={{ mt: 3 }}>
+            <Box 
+              sx={{ 
+                display: 'flex', 
+                flexWrap: 'wrap', 
+                gap: 3 
               }}
-              error={!!usernameError}
-              helperText={usernameError || 'Choose a unique username (3+ characters)'}
-              margin="normal"
-              required
-            />
-            <TextField
-              fullWidth
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (e.target.value) validateEmail(e.target.value);
-              }}
-              error={!!emailError}
-              helperText={emailError || 'Valid email address for account recovery'}
-              margin="normal"
-              required
-            />
+            >
+              <Box sx={{ flex: '1 1 250px' }}>
+                <TextField
+                  fullWidth
+                  label="Username"
+                  value={username}
+                  onChange={(e) => {
+                    setUsername(e.target.value);
+                    if (e.target.value) validateUsername(e.target.value);
+                  }}
+                  error={!!usernameError}
+                  helperText={usernameError || 'Choose a unique username (3+ characters)'}
+                  required
+                />
+              </Box>
+              <Box sx={{ flex: '1 1 250px' }}>
+                <TextField
+                  fullWidth
+                  label="Email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (e.target.value) validateEmail(e.target.value);
+                  }}
+                  error={!!emailError}
+                  helperText={emailError || 'Valid email address for account recovery'}
+                  required
+                />
+              </Box>
+            </Box>
           </Box>
         );
 
       case 1:
         return (
-          <Box sx={{ mt: 2, textAlign: 'center' }}>
-            <SecurityIcon sx={{ fontSize: 60, color: 'primary.main', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
+          <Box sx={{ mt: 3, textAlign: 'center' }}>
+            <SecurityIcon sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
               Generate Cryptographic Keys
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              We'll generate a secure SECP256k1 key pair for Zero-Knowledge Proof authentication.
-              Your private key will be used to create cryptographic proofs without revealing it.
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 4, maxWidth: 500, mx: 'auto' }}>
+              We'll generate a secure SECP256k1 key pair for your account. 
+              Your private key will be used for Zero-Knowledge Proof authentication.
             </Typography>
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              <Typography variant="body2">
-                <strong>Security Notice:</strong> Your private key will be generated locally in your browser.
-                Make sure to backup your keys securely after registration.
-              </Typography>
-            </Alert>
+            
+            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', mb: 3 }}>
+              <Chip
+                icon={<Shield sx={{ fontSize: '16px !important' }} />}
+                label="SECP256k1"
+                color="primary"
+                variant="outlined"
+              />
+              <Chip
+                icon={<Lock sx={{ fontSize: '16px !important' }} />}
+                label="256-bit Security"
+                color="success"
+                variant="outlined"
+              />
+              <Chip
+                icon={<Verified sx={{ fontSize: '16px !important' }} />}
+                label="Zero-Knowledge"
+                color="secondary"
+                variant="outlined"
+              />
+            </Box>
+
+            {loading && (
+              <Box sx={{ mb: 2 }}>
+                <CircularProgress size={24} sx={{ mb: 1 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Generating secure key pair...
+                </Typography>
+              </Box>
+            )}
           </Box>
         );
 
       case 2:
         return (
-          <Box sx={{ mt: 2 }}>
+          <Box sx={{ mt: 3 }}>
             {keyPair && (
-              <>
-                <Typography variant="h6" gutterBottom>
-                  Your ZKP Key Pair
-                </Typography>
-                
-                <Card sx={{ mb: 2, bgcolor: 'error.light', color: 'error.contrastText' }}>
-                  <CardContent>
-                    <Typography variant="subtitle2" gutterBottom>
-                      🔒 Private Key (Keep Secret!)
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  gap: 3 
+                }}
+              >
+                <Box>
+                  <Alert severity="success" sx={{ mb: 3 }}>
+                    <Typography variant="body2">
+                      <strong>Keys Generated Successfully!</strong> Please save your private key securely. 
+                      You'll need it to login to your account.
                     </Typography>
-                    <Box sx={{ 
-                      p: 1, 
-                      bgcolor: 'rgba(0,0,0,0.1)', 
-                      borderRadius: 1, 
-                      fontFamily: 'monospace',
-                      fontSize: '0.75rem',
-                      wordBreak: 'break-all',
-                      mb: 1
-                    }}>
-                      {keyPair.privateKey}
-                    </Box>
-                    <Button 
-                      size="small" 
-                      onClick={() => copyToClipboard(keyPair.privateKey)}
-                      variant="outlined"
-                      color="inherit"
-                    >
-                      Copy Private Key
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                <Card sx={{ mb: 2, bgcolor: 'success.light', color: 'success.contrastText' }}>
-                  <CardContent>
-                    <Typography variant="subtitle2" gutterBottom>
-                      🔑 Public Key (Safe to Share)
-                    </Typography>
-                    <Box sx={{ 
-                      p: 1, 
-                      bgcolor: 'rgba(0,0,0,0.1)', 
-                      borderRadius: 1, 
-                      fontFamily: 'monospace',
-                      fontSize: '0.75rem',
-                      wordBreak: 'break-all',
-                      mb: 1
-                    }}>
-                      {keyPair.publicKeyHex}
-                    </Box>
-                    <Button 
-                      size="small" 
-                      onClick={() => copyToClipboard(keyPair.publicKeyHex)}
-                      variant="outlined"
-                      color="inherit"
-                    >
-                      Copy Public Key
-                    </Button>
-                  </CardContent>
-                </Card>
-
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  <Typography variant="body2">
-                    <strong>Critical:</strong> Save your private key securely! You'll need it to login.
-                    We recommend downloading the key pair backup file.
-                  </Typography>
-                </Alert>
-
-                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                  <Button
-                    variant="outlined"
-                    onClick={downloadKeyPair}
-                    startIcon={<KeyIcon />}
-                  >
-                    Download Key Backup
-                  </Button>
+                  </Alert>
                 </Box>
 
-                <Divider sx={{ my: 2 }} />
-                
-                <Typography variant="body2" color="text.secondary">
-                  Ready to create your account with username: <Chip label={username} size="small" /> 
-                  and email: <Chip label={email} size="small" />
-                </Typography>
-              </>
+                <Box>
+                  <Card 
+                    variant="outlined" 
+                    sx={{ 
+                      background: 'rgba(99, 102, 241, 0.05)',
+                      border: '1px solid rgba(99, 102, 241, 0.2)',
+                    }}
+                  >
+                    <CardContent>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                          Public Key
+                        </Typography>
+                        <Tooltip title="Copy to clipboard">
+                          <IconButton
+                            size="small"
+                            onClick={() => copyToClipboard(keyPair.publicKey)}
+                          >
+                            <ContentCopy sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          fontFamily: 'monospace', 
+                          wordBreak: 'break-all',
+                          bgcolor: 'rgba(255, 255, 255, 0.7)',
+                          p: 2,
+                          borderRadius: 1,
+                          fontSize: '0.75rem',
+                        }}
+                      >
+                        {keyPair.publicKey}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Box>
+
+                <Box>
+                  <Card 
+                    variant="outlined" 
+                    sx={{ 
+                      background: 'rgba(236, 72, 153, 0.05)',
+                      border: '1px solid rgba(236, 72, 153, 0.2)',
+                    }}
+                  >
+                    <CardContent>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                          Private Key ⚠️
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Tooltip title="Copy to clipboard">
+                            <IconButton
+                              size="small"
+                              onClick={() => copyToClipboard(keyPair.privateKey)}
+                            >
+                              <ContentCopy sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Download key pair file">
+                            <IconButton
+                              size="small"
+                              onClick={downloadKeyPair}
+                            >
+                              <Download sx={{ fontSize: 16 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </Box>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          fontFamily: 'monospace', 
+                          wordBreak: 'break-all',
+                          bgcolor: 'rgba(255, 255, 255, 0.7)',
+                          p: 2,
+                          borderRadius: 1,
+                          fontSize: '0.75rem',
+                        }}
+                      >
+                        {keyPair.privateKey}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Box>
+
+                <Box>
+                  <Alert severity="warning">
+                    <Typography variant="body2">
+                      <strong>Important:</strong> Store your private key securely! We recommend downloading 
+                      the key pair file and storing it in a safe location. You'll need this key to login.
+                    </Typography>
+                  </Alert>
+                </Box>
+              </Box>
             )}
           </Box>
         );
@@ -316,78 +388,163 @@ const Register: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Paper elevation={2} sx={{ p: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <PersonAddIcon sx={{ mr: 1, fontSize: 32, color: 'primary.main' }} />
-          <Typography variant="h4" component="h1">
-            Create ZKP Account
-          </Typography>
-        </Box>
-
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Register for passwordless authentication using Zero-Knowledge Proofs.
-          Your account will be secured with cryptographic keys instead of traditional passwords.
-        </Typography>
-
-        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
-
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            {success}
-          </Alert>
-        )}
-
-        {renderStepContent(activeStep)}
-
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-          <Button
-            disabled={activeStep === 0}
-            onClick={handleBack}
-          >
-            Back
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleNext}
-            disabled={loading || (activeStep === 0 && (!username || !email))}
-            startIcon={loading ? <CircularProgress size={20} /> : activeStep === 2 ? <CheckCircleIcon /> : null}
-          >
-            {loading ? 'Processing...' : 
-             activeStep === 0 ? 'Generate Keys' :
-             activeStep === 1 ? 'Create Keys' :
-             'Create Account'}
-          </Button>
-        </Box>
-
-        <Divider sx={{ my: 3 }} />
-        
-        <Box sx={{ textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            Already have an account?{' '}
-            <Button 
-              color="primary" 
-              onClick={() => navigate('/login')}
-              sx={{ textTransform: 'none' }}
+    <Box sx={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}>
+      {/* Header */}
+      <Box sx={{ pt: 4, pb: 2 }}>
+        <Container maxWidth="md">
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+            <IconButton 
+              onClick={() => navigate('/login')} 
+              sx={{ mr: 2 }}
             >
-              Login here
-            </Button>
+              <ArrowBack />
+            </IconButton>
+            <SecurityIcon 
+              sx={{ 
+                mr: 2, 
+                fontSize: 32,
+                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }} 
+            />
+            <Typography 
+              variant="h4" 
+              sx={{ 
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #1e293b 0%, #475569 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              Create Your Account
+            </Typography>
+          </Box>
+
+          <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 400, mb: 4 }}>
+            Join the future of secure file sharing with Zero-Knowledge Proof authentication
           </Typography>
-        </Box>
-      </Paper>
-    </Container>
+        </Container>
+      </Box>
+
+      {/* Main Content */}
+      <Container maxWidth="md" sx={{ pb: 8 }}>
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            p: 4,
+            background: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(226, 232, 240, 0.8)',
+          }}
+        >
+          {/* Progress Stepper */}
+          <Box sx={{ mb: 4 }}>
+            <Stepper activeStep={activeStep} alternativeLabel>
+              {steps.map((label, index) => (
+                <Step key={label}>
+                  <StepLabel
+                    StepIconProps={{
+                      sx: {
+                        '&.Mui-active': {
+                          color: 'primary.main',
+                        },
+                        '&.Mui-completed': {
+                          color: 'success.main',
+                        },
+                      },
+                    }}
+                  >
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {label}
+                    </Typography>
+                  </StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+            
+            {/* Progress Bar */}
+            <Box sx={{ mt: 2 }}>
+              <LinearProgress 
+                variant="determinate" 
+                value={(activeStep / (steps.length - 1)) * 100}
+                sx={{
+                  height: 6,
+                  borderRadius: 3,
+                  backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                  '& .MuiLinearProgress-bar': {
+                    background: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%)',
+                    borderRadius: 3,
+                  },
+                }}
+              />
+            </Box>
+          </Box>
+
+          {/* Alerts */}
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {error}
+            </Alert>
+          )}
+
+          {success && (
+            <Alert severity="success" sx={{ mb: 3 }}>
+              {success}
+            </Alert>
+          )}
+
+          {/* Step Content */}
+          {renderStepContent(activeStep)}
+
+          {/* Navigation Buttons */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
+            <Button
+              disabled={activeStep === 0}
+              onClick={handleBack}
+              variant="outlined"
+              size="large"
+              sx={{ minWidth: 120 }}
+            >
+              Back
+            </Button>
+            
+            <Button
+              variant="contained"
+              onClick={handleNext}
+              disabled={loading || (activeStep === 0 && (!username || !email || !!usernameError || !!emailError))}
+              size="large"
+              sx={{ minWidth: 120 }}
+              startIcon={
+                loading ? <CircularProgress size={20} /> : 
+                activeStep === steps.length - 1 ? <PersonAddIcon /> : 
+                activeStep === 1 ? <KeyIcon /> : null
+              }
+            >
+              {loading ? 'Processing...' :
+               activeStep === steps.length - 1 ? 'Create Account' :
+               activeStep === 1 ? 'Generate Keys' : 'Next'}
+            </Button>
+          </Box>
+
+          {/* Footer */}
+          <Divider sx={{ my: 4 }} />
+          
+          <Box sx={{ textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              Already have an account?{' '}
+              <Button 
+                color="primary" 
+                onClick={() => navigate('/login')}
+                sx={{ textTransform: 'none', fontWeight: 600 }}
+              >
+                Sign in here
+              </Button>
+            </Typography>
+          </Box>
+        </Paper>
+      </Container>
+    </Box>
   );
 };
 
