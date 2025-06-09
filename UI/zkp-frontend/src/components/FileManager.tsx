@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container,
   Paper,
@@ -24,7 +24,6 @@ import {
   Switch,
   FormControlLabel,
   Tooltip,
-  Link,
 } from '@mui/material';
 import {
   CloudUpload,
@@ -119,23 +118,11 @@ const FileManager: React.FC = () => {
     require_auth: false,
   });
 
-  useEffect(() => {
-    loadData();
+  const showSnackbar = useCallback((message: string, severity: 'success' | 'error') => {
+    setSnackbar({ open: true, message, severity });
   }, []);
 
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      await Promise.all([loadFiles(), loadStorageInfo()]);
-    } catch (error) {
-      console.error('Error loading data:', error);
-      showSnackbar('Error loading data', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadFiles = async () => {
+  const loadFiles = useCallback(async () => {
     try {
       const token = zkpService.getToken();
       if (!token) {
@@ -166,9 +153,9 @@ const FileManager: React.FC = () => {
       showSnackbar('Error loading files', 'error');
       setFiles([]); // Set empty array on error
     }
-  };
+  }, [showSnackbar]);
 
-  const loadStorageInfo = async () => {
+  const loadStorageInfo = useCallback(async () => {
     try {
       const token = zkpService.getToken();
       if (!token) return;
@@ -188,11 +175,23 @@ const FileManager: React.FC = () => {
     } catch (error) {
       console.error('Error loading storage info:', error);
     }
-  };
+  }, []);
 
-  const showSnackbar = (message: string, severity: 'success' | 'error') => {
-    setSnackbar({ open: true, message, severity });
-  };
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      await Promise.all([loadFiles(), loadStorageInfo()]);
+    } catch (error) {
+      console.error('Error loading data:', error);
+      showSnackbar('Error loading data', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [loadFiles, loadStorageInfo, showSnackbar]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -319,7 +318,7 @@ const FileManager: React.FC = () => {
         showSnackbar('File updated successfully!', 'success');
         setEditDialogOpen(false);
         setSelectedFileInfo(null);
-        await loadFiles();
+        await loadData();
       } else {
         const errorData = await response.json().catch(() => ({ detail: 'Update failed' }));
         const errorMessage = typeof errorData === 'string' ? errorData : 
@@ -454,7 +453,7 @@ const FileManager: React.FC = () => {
         }
       }
       
-      await loadFiles(); // Refresh to update any sharing indicators
+      await loadData(); // Refresh to update any sharing indicators
     } catch (error) {
       console.error('Share creation error:', error);
       showSnackbar('Failed to create share link', 'error');

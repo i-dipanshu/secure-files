@@ -47,6 +47,11 @@ async def get_current_user(
     try:
         # Verify JWT token
         payload = auth_service.verify_token(credentials.credentials)
+        
+        # Check if token verification failed (returns None)
+        if payload is None:
+            raise AuthenticationFailedException("Invalid or expired token")
+        
         user_id = payload.get("sub")
         
         if user_id is None:
