@@ -155,7 +155,7 @@ async def list_shared_files(
             offset=offset
         )
         
-        file_summaries = [file_obj.to_summary_dict() for file_obj in files]
+        file_summaries = [file_obj.to_shared_dict() for file_obj in files]
         
         return JSONResponse(
             content={

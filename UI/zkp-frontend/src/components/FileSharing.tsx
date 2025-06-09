@@ -7,13 +7,7 @@ import {
   Button,
   Card,
   CardContent,
-  CardActions,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  TextField,
   Alert,
   CircularProgress,
   Snackbar,
@@ -24,70 +18,82 @@ import {
   ListItem,
   ListItemText,
   ListItemSecondaryAction,
-  FormControlLabel,
-  Switch,
   Tooltip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Avatar,
+  Divider,
 } from '@mui/material';
 import {
   Share as ShareIcon,
-  Link as LinkIcon,
   People as PeopleIcon,
-  ContentCopy as CopyIcon,
   Delete as DeleteIcon,
   MoreVert,
-  Schedule as ScheduleIcon,
   Refresh as RefreshIcon,
   Download,
   Visibility,
+  ExpandMore,
+  Person,
 } from '@mui/icons-material';
 import { zkpService } from '../services/zkpService';
 
-interface SharedFile {
-  file_id: string;
-  filename: string;
-  display_name: string;
-  file_size: number;
-  mime_type: string;
-  created_at: string;
-  share_url?: string;
-  shared_with: string[];
-  access_count: number;
+interface UserPermission {
+  permission_id: string;
+  user_id: string;
+  username: string;
+  email: string;
+  permission_type: string;
+  granted_at: string;
   expires_at?: string;
-  owner?: {
-    username: string;
-  };
-  permission_type?: string;
-  is_owner?: boolean;
+  is_active: boolean;
+  is_expired: boolean;
 }
 
-interface ShareLink {
-  id: string;
-  file_id: string;
-  filename: string;
-  share_url: string;
-  expires_at?: string;
-  access_count: number;
-  created_at: string;
+interface UserSharingGroup {
+  username: string;
+  user_id: string;
+  email: string;
+  shared_files: Array<{
+    file_id: string;
+    filename: string;
+    display_name: string;
+    permission_type: string;
+    granted_at: string;
+    expires_at?: string;
+    is_expired: boolean;
+  }>;
+  total_files: number;
+}
+
+interface SharedWithMeGroup {
+  owner_username: string;
+  owner_id: string;
+  owner_email: string;
+  shared_files: Array<{
+    file_id: string;
+    filename: string;
+    display_name: string;
+    file_size: number;
+    mime_type: string;
+    permission_type: string;
+    granted_at: string;
+    expires_at?: string;
+    is_expired: boolean;
+    shared_at: string;
+  }>;
+  total_files: number;
 }
 
 const FileSharing: React.FC = () => {
-  const [files, setFiles] = useState<SharedFile[]>([]);
-  const [shareLinks, setShareLinks] = useState<ShareLink[]>([]);
+  const [userSharingGroups, setUserSharingGroups] = useState<UserSharingGroup[]>([]);
+  const [sharedWithMeGroups, setSharedWithMeGroups] = useState<SharedWithMeGroup[]>([]);
   const [loading, setLoading] = useState(true);
-  const [shareDialogOpen, setShareDialogOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<SharedFile | null>(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [menuFileId, setMenuFileId] = useState<string | null>(null);
 
-  // Share form state
-  const [shareForm, setShareForm] = useState({
-    shared_users: '',
-    expires_in_hours: 24,
-    allow_download: true,
-  });
-
-  const loadSharedFiles = useCallback(async () => {
+  const loadSharedWithMeFiles = useCallback(async () => {
     try {
       const token = zkpService.getToken();
       if (!token) {
@@ -103,188 +109,178 @@ const FileSharing: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Shared files API response:', data);
+        console.log('Shared with me API response:', data);
         
-        // Handle the response properly - the API returns files that have been shared with the user
         const sharedFiles = data.files || [];
         
-        // Transform the API response to match our interface
-        const transformedFiles = sharedFiles.map((file: any) => ({
-          file_id: file.file_id,
-          filename: file.filename,
-          display_name: file.display_name || file.filename,
-          file_size: file.file_size,
-          mime_type: file.mime_type,
-          created_at: file.created_at || file.shared_at,
-          is_public: file.is_public || false,
-          share_url: file.is_public ? `http://localhost:3000/public/${file.file_id}` : undefined,
-          shared_with: file.is_public ? [] : ['Private share'],
-          access_count: file.view_count || 0,
-          expires_at: file.expires_at,
-          owner: file.owner ? { username: file.owner.username } : undefined,
-          permission_type: file.permission_type,
-          shared_at: file.shared_at,
-          is_owner: false, // These are files shared WITH the user, not owned by them
-        }));
-        
-        setFiles(transformedFiles);
-        console.log('Shared files loaded:', transformedFiles);
+        // Group files by owner
+        const ownerGroups: { [ownerId: string]: SharedWithMeGroup } = {};
+
+        sharedFiles.forEach((file: any) => {
+          const ownerId = file.owner?.id || file.owner?.user_id || file.owner_id || 'unknown';
+          const ownerUsername = file.owner?.username || 'Unknown User';
+          const ownerEmail = file.owner?.email || '';
+
+          if (!ownerGroups[ownerId]) {
+            ownerGroups[ownerId] = {
+              owner_username: ownerUsername,
+              owner_id: ownerId,
+              owner_email: ownerEmail,
+              shared_files: [],
+              total_files: 0,
+            };
+          }
+
+          // Only add active, non-expired permissions
+          const isExpired = file.expires_at ? new Date(file.expires_at) < new Date() : false;
+          if (file.is_active !== false && !isExpired) {
+            ownerGroups[ownerId].shared_files.push({
+              file_id: file.file_id,
+              filename: file.filename,
+              display_name: file.display_name || file.filename,
+              file_size: file.file_size,
+              mime_type: file.mime_type,
+              permission_type: file.permission_type || 'read',
+              granted_at: file.shared_at || file.granted_at || file.created_at,
+              expires_at: file.expires_at,
+              is_expired: isExpired,
+              shared_at: file.shared_at || file.granted_at || file.created_at,
+            });
+            ownerGroups[ownerId].total_files++;
+          }
+        });
+
+        // Filter out owners with no active files
+        const activeGroups = Object.values(ownerGroups).filter(group => group.total_files > 0);
+        setSharedWithMeGroups(activeGroups);
+        console.log('Shared with me groups loaded:', activeGroups);
       } else {
         console.error('Failed to load shared files:', response.status);
-        // If the shared endpoint fails, fall back to getting user's own files and showing sharing status
-        await loadUserOwnFilesWithSharingInfo();
+        setSharedWithMeGroups([]);
       }
     } catch (error) {
-      console.error('Error loading shared files:', error);
-      // Fallback to user's own files
-      await loadUserOwnFilesWithSharingInfo();
+      console.error('Error loading shared with me files:', error);
+      setSharedWithMeGroups([]);
+    }
+  }, []);
+
+  const loadUserSharingGroups = useCallback(async () => {
+    try {
+      const token = zkpService.getToken();
+      if (!token) {
+        console.error('No authentication token');
+        return;
+      }
+
+      // Get user's own files first
+      const filesResponse = await fetch('http://localhost:8000/api/files/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!filesResponse.ok) {
+        console.error('Failed to load user files');
+        return;
+      }
+
+      const filesData = await filesResponse.json();
+      const userFiles = filesData.files || [];
+
+      // For each file, get its permissions to build user sharing groups
+      const allPermissions: Array<{
+        file: any;
+        permissions: UserPermission[];
+      }> = [];
+
+      await Promise.all(
+        userFiles.map(async (file: any) => {
+          try {
+            const permResponse = await fetch(`http://localhost:8000/api/files/${file.file_id}/permissions`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+              },
+            });
+
+            if (permResponse.ok) {
+              const permData = await permResponse.json();
+              const permissions = permData.permissions || [];
+              
+              // Filter only active, non-expired permissions
+              const activePermissions = permissions.filter((perm: UserPermission) => {
+                const isExpired = perm.expires_at ? new Date(perm.expires_at) < new Date() : false;
+                return perm.is_active && !isExpired;
+              });
+              
+              if (activePermissions.length > 0) {
+                allPermissions.push({
+                  file: file,
+                  permissions: activePermissions
+                });
+              }
+            }
+          } catch (error) {
+            console.error(`Error getting permissions for file ${file.file_id}:`, error);
+          }
+        })
+      );
+
+      // Group permissions by user
+      const userGroups: { [userId: string]: UserSharingGroup } = {};
+
+      allPermissions.forEach(({ file, permissions }) => {
+        permissions.forEach((perm: UserPermission) => {
+          if (!userGroups[perm.user_id]) {
+            userGroups[perm.user_id] = {
+              username: perm.username,
+              user_id: perm.user_id,
+              email: perm.email,
+              shared_files: [],
+              total_files: 0,
+            };
+          }
+
+          const isExpired = perm.expires_at ? new Date(perm.expires_at) < new Date() : false;
+          userGroups[perm.user_id].shared_files.push({
+            file_id: file.file_id,
+            filename: file.filename,
+            display_name: file.display_name || file.filename,
+            permission_type: perm.permission_type,
+            granted_at: perm.granted_at,
+            expires_at: perm.expires_at,
+            is_expired: isExpired,
+          });
+          userGroups[perm.user_id].total_files++;
+        });
+      });
+
+      setUserSharingGroups(Object.values(userGroups));
+      console.log('User sharing groups loaded:', Object.values(userGroups));
+    } catch (error) {
+      console.error('Error loading user sharing groups:', error);
+      setUserSharingGroups([]);
     }
   }, []);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      await Promise.all([loadSharedFiles(), loadShareLinks()]);
+      await Promise.all([loadSharedWithMeFiles(), loadUserSharingGroups()]);
     } finally {
       setLoading(false);
     }
-  }, [loadSharedFiles]);
+  }, [loadSharedWithMeFiles, loadUserSharingGroups]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  const loadUserOwnFilesWithSharingInfo = async () => {
-    try {
-      const token = zkpService.getToken();
-      if (!token) return;
-
-      // Get user's own files
-      const response = await fetch('http://localhost:8000/api/files/', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const allFiles = data.files || [];
-        
-        // For each file, check if it has any permissions (is shared)
-        const filesWithSharingInfo = await Promise.all(
-          allFiles.map(async (file: any) => {
-            try {
-              const permResponse = await fetch(`http://localhost:8000/api/files/${file.file_id}/permissions`, {
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                },
-              });
-
-              if (permResponse.ok) {
-                const permData = await permResponse.json();
-                const permissions = permData.permissions || [];
-                
-                return {
-                  ...file,
-                  shared_with: permissions.map((p: any) => p.username),
-                  access_count: file.view_count || 0,
-                  permissions: permissions,
-                };
-              }
-              return null;
-            } catch (error) {
-              console.error(`Error getting permissions for file ${file.file_id}:`, error);
-              return null;
-            }
-          })
-        );
-
-        // Filter out files that have sharing info (have permissions)
-        const sharedFiles = filesWithSharingInfo
-          .filter(file => file && (file.shared_with && file.shared_with.length > 0))
-          .map(file => ({
-            file_id: file.file_id,
-            filename: file.filename,
-            display_name: file.display_name || file.filename,
-            file_size: file.file_size,
-            mime_type: file.mime_type,
-            created_at: file.created_at,
-            shared_with: file.shared_with,
-            access_count: file.access_count,
-            expires_at: file.expires_at,
-            is_owner: true, // These are files owned by the user
-          }));
-
-        setFiles(sharedFiles);
-      }
-    } catch (error) {
-      console.error('Error loading user files with sharing info:', error);
-      setFiles([]);
-    }
-  };
-
-  const loadShareLinks = async () => {
-    try {
-      // Get the current user's files to generate realistic share links
-      const token = zkpService.getToken();
-      if (!token) {
-        console.error('No authentication token');
-        setShareLinks([]);
-        return;
-      }
-
-      const response = await fetch('http://localhost:8000/api/files/', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      let userFiles: any[] = [];
-      if (response.ok) {
-        const data = await response.json();
-        userFiles = data.files || [];
-      }
-
-      // Generate user-specific share links based on their actual files
-      const userShareLinks: ShareLink[] = userFiles.slice(0, 3).map((file, index) => ({
-        id: `link_${file.file_id || index}`,
-        file_id: file.file_id || `file_${index}`,
-        filename: file.display_name || file.filename || `file_${index}.pdf`,
-        share_url: `http://localhost:3000/public/${file.file_id || `file_${index}`}`,
-        access_count: Math.floor(Math.random() * 30) + 1,
-        expires_at: index % 3 === 0 ? new Date(Date.now() + (Math.floor(Math.random() * 10) + 1) * 24 * 60 * 60 * 1000).toISOString() : undefined,
-        created_at: new Date(Date.now() - Math.floor(Math.random() * 7) * 24 * 60 * 60 * 1000).toISOString(),
-      }));
-
-      // If no user files, provide default demo data
-      if (userShareLinks.length === 0) {
-        const defaultShareLinks: ShareLink[] = [
-          {
-            id: 'demo_link1',
-            file_id: 'demo1',
-            filename: 'sample-document.pdf',
-            share_url: `http://localhost:3000/public/demo1`,
-            access_count: 5,
-            created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-          },
-        ];
-        setShareLinks(defaultShareLinks);
-      } else {
-        setShareLinks(userShareLinks);
-      }
-    } catch (error) {
-      console.error('Error loading share links:', error);
-      // Provide fallback data
-      setShareLinks([]);
-    }
-  };
-
   const showSnackbar = (message: string, severity: 'success' | 'error') => {
     setSnackbar({ open: true, message, severity });
   };
 
-  const handleShareFile = async () => {
-    if (!selectedFile) return;
+  const handleRevokeUserAccess = async (userId: string, username: string) => {
+    if (!window.confirm(`Are you sure you want to revoke all file access for ${username}?`)) return;
 
     try {
       const token = zkpService.getToken();
@@ -293,103 +289,61 @@ const FileSharing: React.FC = () => {
         return;
       }
 
-      // For user sharing, use the backend API for each user
-      const sharedUsers = shareForm.shared_users.split(',').map(u => u.trim()).filter(u => u);
-      const successfulShares: string[] = [];
-      const failedShares: string[] = [];
+      // Find all files shared with this user and revoke access to each
+      const userGroup = userSharingGroups.find(group => group.user_id === userId);
+      if (!userGroup) {
+        showSnackbar('User sharing group not found', 'error');
+        return;
+      }
 
-      for (const user of sharedUsers) {
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const sharedFile of userGroup.shared_files) {
         try {
-          const response = await fetch(`http://localhost:8000/api/files/${selectedFile.file_id}/share`, {
-            method: 'POST',
+          const response = await fetch(`http://localhost:8000/api/files/${sharedFile.file_id}/share/${userId}`, {
+            method: 'DELETE',
             headers: {
               'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              target_user: user,
-              permission_type: 'read',
-              expires_hours: shareForm.expires_in_hours,
-            }),
           });
 
           if (response.ok) {
-            const responseData = await response.json();
-            console.log(`Successfully shared with ${user}:`, responseData);
-            successfulShares.push(user);
+            successCount++;
           } else {
-            const errorData = await response.json().catch(() => ({ detail: 'Share failed' }));
-            console.error(`Failed to share with ${user}:`, errorData);
-            failedShares.push(user);
+            console.error(`Failed to revoke access to file ${sharedFile.display_name}`);
+            failCount++;
           }
         } catch (error) {
-          console.error(`Error sharing with ${user}:`, error);
-          failedShares.push(user);
+          console.error(`Error revoking access to file ${sharedFile.display_name}:`, error);
+          failCount++;
         }
       }
 
-      // Show results
-      if (successfulShares.length > 0) {
-        showSnackbar(`File shared successfully with: ${successfulShares.join(', ')}`, 'success');
+      if (successCount > 0) {
+        showSnackbar(`Revoked access to ${successCount} file(s) for ${username}`, 'success');
+        // Force reload data to refresh UI
+        await loadData();
       }
-      if (failedShares.length > 0) {
-        showSnackbar(`Failed to share with: ${failedShares.join(', ')}`, 'error');
-      }
-
-      if (successfulShares.length > 0) {
-        setShareDialogOpen(false);
-        await loadData(); // Refresh to update any sharing indicators
+      if (failCount > 0) {
+        showSnackbar(`Failed to revoke access to ${failCount} file(s)`, 'error');
       }
     } catch (error) {
-      console.error('Share creation error:', error);
-      showSnackbar('Failed to share file', 'error');
+      console.error('Revoke access error:', error);
+      showSnackbar('Failed to revoke access', 'error');
     }
   };
 
-  const handleCopyShareLink = (shareUrl: string) => {
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      showSnackbar('Share link copied to clipboard!', 'success');
-    }).catch(() => {
-      showSnackbar('Failed to copy link', 'error');
-    });
-  };
-
-  const handleRevokeShare = async (fileId: string, userId?: string) => {
-    if (!userId) {
-      // If no userId provided, get the file permissions first to show users to revoke
-      try {
-        const token = zkpService.getToken();
-        const response = await fetch(`http://localhost:8000/api/files/${fileId}/permissions`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const permissions = data.permissions || [];
-          if (permissions.length === 0) {
-            showSnackbar('No users have access to this file', 'error');
-            return;
-          }
-          
-          // For now, revoke all permissions (in a real app, you'd show a selection dialog)
-          for (const perm of permissions) {
-            await handleRevokeShare(fileId, perm.user_id);
-          }
-          return;
-        }
-      } catch (error) {
-        console.error('Error getting permissions:', error);
-        showSnackbar('Failed to get file permissions', 'error');
-        return;
-      }
-    }
-
-    if (!window.confirm('Are you sure you want to revoke sharing for this user?')) return;
+  const handleRevokeFileAccess = async (fileId: string, userId: string, filename: string, username: string) => {
+    if (!window.confirm(`Are you sure you want to revoke ${username}'s access to "${filename}"?`)) return;
 
     try {
       const token = zkpService.getToken();
+      if (!token) {
+        showSnackbar('Authentication required', 'error');
+        return;
+      }
+
       const response = await fetch(`http://localhost:8000/api/files/${fileId}/share/${userId}`, {
         method: 'DELETE',
         headers: {
@@ -398,29 +352,20 @@ const FileSharing: React.FC = () => {
       });
 
       if (response.ok) {
-        showSnackbar('File sharing revoked successfully!', 'success');
+        showSnackbar(`Revoked ${username}'s access to "${filename}"`, 'success');
+        // Force reload data to refresh UI
         await loadData();
       } else {
-        const errorData = await response.json().catch(() => ({ detail: 'Failed to revoke sharing' }));
+        const errorData = await response.json().catch(() => ({ detail: 'Failed to revoke access' }));
         const errorMessage = typeof errorData === 'string' ? errorData : 
                             errorData.detail || 
-                            (errorData.message ? errorData.message : 'Failed to revoke sharing');
+                            (errorData.message ? errorData.message : 'Failed to revoke access');
         showSnackbar(errorMessage, 'error');
       }
     } catch (error) {
-      console.error('Revoke error:', error);
-      showSnackbar('Failed to revoke sharing', 'error');
+      console.error('Revoke access error:', error);
+      showSnackbar('Failed to revoke access', 'error');
     }
-  };
-
-  const openShareDialog = (file: SharedFile) => {
-    setSelectedFile(file);
-    setShareForm({
-      shared_users: '',
-      expires_in_hours: 24,
-      allow_download: true,
-    });
-    setShareDialogOpen(true);
   };
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, fileId: string) => {
@@ -454,7 +399,7 @@ const FileSharing: React.FC = () => {
     return date.toLocaleDateString();
   };
 
-  const handleViewFile = async (file: SharedFile) => {
+  const handleViewFile = async (fileId: string) => {
     try {
       const token = zkpService.getToken();
       if (!token) {
@@ -462,10 +407,7 @@ const FileSharing: React.FC = () => {
         return;
       }
 
-      // Use regular authenticated endpoint for all files
-      const downloadEndpoint = `http://localhost:8000/api/files/${file.file_id}/download`;
-
-      const response = await fetch(downloadEndpoint, {
+      const response = await fetch(`http://localhost:8000/api/files/${fileId}/download`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -490,7 +432,7 @@ const FileSharing: React.FC = () => {
     }
   };
 
-  const handleDownloadFile = async (file: SharedFile) => {
+  const handleDownloadFile = async (fileId: string, filename: string) => {
     try {
       const token = zkpService.getToken();
       if (!token) {
@@ -498,10 +440,7 @@ const FileSharing: React.FC = () => {
         return;
       }
 
-      // Use regular authenticated endpoint for all files
-      const downloadEndpoint = `http://localhost:8000/api/files/${file.file_id}/download`;
-
-      const response = await fetch(downloadEndpoint, {
+      const response = await fetch(`http://localhost:8000/api/files/${fileId}/download`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -519,7 +458,7 @@ const FileSharing: React.FC = () => {
             const blobUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = blobUrl;
-            link.download = file.display_name || file.filename || 'download';
+            link.download = filename || 'download';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -574,160 +513,190 @@ const FileSharing: React.FC = () => {
       </Box>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
-        {/* Active Share Links */}
-        <Card>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-              <LinkIcon sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography variant="h6">Active Share Links</Typography>
-            </Box>
-
-            {shareLinks.length === 0 ? (
-              <Alert severity="info">
-                No active share links. Share a file to create a shareable link.
-              </Alert>
-            ) : (
-              <List>
-                {shareLinks.map((link) => (
-                  <ListItem key={link.id} divider>
-                    <ListItemText
-                      primary={link.filename}
-                      secondary={
-                        <Box>
-                          <Typography variant="caption" display="block">
-                            {link.access_count} accesses • Created {formatDate(link.created_at)}
-                          </Typography>
-                          <Typography variant="caption" display="block" color="primary">
-                            {link.share_url}
-                          </Typography>
-                        </Box>
-                      }
-                    />
-                    <ListItemSecondaryAction>
-                      <Tooltip title="Copy Link">
-                        <IconButton onClick={() => handleCopyShareLink(link.share_url)}>
-                          <CopyIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Revoke">
-                        <IconButton onClick={() => handleRevokeShare(link.file_id)}>
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </ListItemSecondaryAction>
-                  </ListItem>
-                ))}
-              </List>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Shared Files */}
+        {/* Active User Sharing - Files I've shared */}
         <Card>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <PeopleIcon sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography variant="h6">Shared Files</Typography>
+              <Typography variant="h6">Files I've Shared</Typography>
             </Box>
 
-            {files.length === 0 ? (
+            {userSharingGroups.length === 0 ? (
               <Alert severity="info">
-                No files shared yet. Go to File Manager to share your files.
+                No files are currently shared with other users. Go to File Manager to share your files.
               </Alert>
             ) : (
-              <Box
-                sx={{
-                  display: 'grid',
-                  gap: 2,
-                }}
-              >
-                {files.map((file) => (
-                  <Card key={file.file_id} variant="outlined">
-                    <CardContent sx={{ pb: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography variant="subtitle1" noWrap title={file.display_name}>
-                            {file.display_name}
+              <Box>
+                {userSharingGroups.map((userGroup) => (
+                  <Accordion key={userGroup.user_id} sx={{ mb: 1 }}>
+                    <AccordionSummary expandIcon={<ExpandMore />}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                        <Avatar sx={{ mr: 2, bgcolor: 'primary.main', width: 32, height: 32 }}>
+                          <Person />
+                        </Avatar>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                            {userGroup.username}
                           </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {formatFileSize(file.file_size)} • {file.mime_type}
+                          <Typography variant="caption" color="text.secondary">
+                            {userGroup.email} • {userGroup.total_files} file(s) shared
                           </Typography>
-                          <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                            {file.shared_with.length > 0 && (
-                              <Chip
-                                icon={<PeopleIcon />}
-                                label={`${file.shared_with.length} users`}
-                                size="small"
-                                color="primary"
-                              />
-                            )}
-                            {file.expires_at && (
-                              <Chip
-                                icon={<ScheduleIcon />}
-                                label="Expires"
-                                size="small"
-                                color="warning"
-                              />
-                            )}
-                          </Box>
                         </Box>
-                        <IconButton
-                          size="small"
-                          onClick={(e) => handleMenuOpen(e, file.file_id)}
-                        >
-                          <MoreVert />
-                        </IconButton>
-                      </Box>
-                    </CardContent>
-                    <CardActions>
-                      {file.is_owner ? (
-                        // If user owns the file, show sharing management options
-                        <>
-                          <Button
+                        <Tooltip title="Revoke all access">
+                          <IconButton
                             size="small"
-                            startIcon={<ShareIcon />}
-                            onClick={() => openShareDialog(file)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRevokeUserAccess(userGroup.user_id, userGroup.username);
+                            }}
+                            sx={{ ml: 1 }}
                           >
-                            Manage Sharing
-                          </Button>
-                          {file.share_url && (
-                            <Button
-                              size="small"
-                              startIcon={<CopyIcon />}
-                              onClick={() => handleCopyShareLink(file.share_url!)}
-                            >
-                              Copy Link
-                            </Button>
-                          )}
-                        </>
-                      ) : (
-                        // If file is shared with user, show access options
-                        <>
-                          <Box sx={{ display: 'flex', gap: 1 }}>
-                            <Button
-                              size="small"
-                              startIcon={<Visibility />}
-                              onClick={() => handleViewFile(file)}
-                            >
-                              View
-                            </Button>
-                            <Button
-                              size="small"
-                              startIcon={<Download />}
-                              onClick={() => handleDownloadFile(file)}
-                            >
-                              Download
-                            </Button>
-                          </Box>
-                          {file.owner && (
-                            <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-                              Shared by {file.owner.username}
-                            </Typography>
-                          )}
-                        </>
-                      )}
-                    </CardActions>
-                  </Card>
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <List dense>
+                        {userGroup.shared_files.map((file, index) => (
+                          <React.Fragment key={file.file_id}>
+                            <ListItem>
+                              <ListItemText
+                                primary={file.display_name}
+                                secondary={
+                                  <Box>
+                                    <Typography variant="caption" display="block">
+                                      Permission: {file.permission_type} • Granted: {formatDate(file.granted_at)}
+                                    </Typography>
+                                    {file.expires_at && (
+                                      <Chip
+                                        label={file.is_expired ? 'Expired' : `Expires: ${formatDate(file.expires_at)}`}
+                                        size="small"
+                                        color={file.is_expired ? 'error' : 'warning'}
+                                        sx={{ mt: 0.5 }}
+                                      />
+                                    )}
+                                  </Box>
+                                }
+                              />
+                              <ListItemSecondaryAction>
+                                <Tooltip title="Revoke access to this file">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleRevokeFileAccess(
+                                      file.file_id,
+                                      userGroup.user_id,
+                                      file.display_name,
+                                      userGroup.username
+                                    )}
+                                  >
+                                    <DeleteIcon />
+                                  </IconButton>
+                                </Tooltip>
+                              </ListItemSecondaryAction>
+                            </ListItem>
+                            {index < userGroup.shared_files.length - 1 && <Divider />}
+                          </React.Fragment>
+                        ))}
+                      </List>
+                    </AccordionDetails>
+                  </Accordion>
+                ))}
+              </Box>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Files Shared With Me - Organized by Owner */}
+        <Card>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+              <ShareIcon sx={{ mr: 1, color: 'primary.main' }} />
+              <Typography variant="h6">Files Shared With Me</Typography>
+            </Box>
+
+            {sharedWithMeGroups.length === 0 ? (
+              <Alert severity="info">
+                No files have been shared with you yet.
+              </Alert>
+            ) : (
+              <Box>
+                {sharedWithMeGroups.map((ownerGroup) => (
+                  <Accordion key={ownerGroup.owner_id} sx={{ mb: 1 }}>
+                    <AccordionSummary expandIcon={<ExpandMore />}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                        <Avatar sx={{ mr: 2, bgcolor: 'secondary.main', width: 32, height: 32 }}>
+                          <Person />
+                        </Avatar>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                            {ownerGroup.owner_username}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {ownerGroup.owner_email} • {ownerGroup.total_files} file(s) shared with you
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <List dense>
+                        {ownerGroup.shared_files.map((file, index) => (
+                          <React.Fragment key={file.file_id}>
+                            <ListItem>
+                              <ListItemText
+                                primary={file.display_name}
+                                secondary={
+                                  <Box>
+                                    <Typography variant="caption" display="block">
+                                      {formatFileSize(file.file_size)} • {file.mime_type}
+                                    </Typography>
+                                    <Typography variant="caption" display="block">
+                                      Permission: {file.permission_type} • Shared: {formatDate(file.shared_at)}
+                                    </Typography>
+                                    {file.expires_at && (
+                                      <Chip
+                                        label={file.is_expired ? 'Expired' : `Expires: ${formatDate(file.expires_at)}`}
+                                        size="small"
+                                        color={file.is_expired ? 'error' : 'warning'}
+                                        sx={{ mt: 0.5 }}
+                                      />
+                                    )}
+                                  </Box>
+                                }
+                              />
+                              <ListItemSecondaryAction>
+                                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                  <Tooltip title="View file">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleViewFile(file.file_id)}
+                                    >
+                                      <Visibility />
+                                    </IconButton>
+                                  </Tooltip>
+                                  <Tooltip title="Download file">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleDownloadFile(file.file_id, file.display_name)}
+                                    >
+                                      <Download />
+                                    </IconButton>
+                                  </Tooltip>
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => handleMenuOpen(e, file.file_id)}
+                                  >
+                                    <MoreVert />
+                                  </IconButton>
+                                </Box>
+                              </ListItemSecondaryAction>
+                            </ListItem>
+                            {index < ownerGroup.shared_files.length - 1 && <Divider />}
+                          </React.Fragment>
+                        ))}
+                      </List>
+                    </AccordionDetails>
+                  </Accordion>
                 ))}
               </Box>
             )}
@@ -740,15 +709,20 @@ const FileSharing: React.FC = () => {
         <Typography variant="h6" gutterBottom>
           Sharing Guidelines
         </Typography>
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
+          <Alert severity="info" sx={{ height: '100%' }}>
+            <Typography variant="body2">
+              <strong>User-Based Sharing:</strong> Share files directly with specific users by username or email.
+            </Typography>
+          </Alert>
           <Alert severity="warning" sx={{ height: '100%' }}>
             <Typography variant="body2">
-              <strong>User Sharing:</strong> Only specific users can access the file. They must be registered and authenticated.
+              <strong>Access Control:</strong> You can revoke access for individual files or all files shared with a user.
             </Typography>
           </Alert>
           <Alert severity="success" sx={{ height: '100%' }}>
             <Typography variant="body2">
-              <strong>Secure:</strong> All shares use encrypted links and can be revoked at any time.
+              <strong>Auto-Cleanup:</strong> Expired or revoked permissions are automatically filtered out from the interface.
             </Typography>
           </Alert>
         </Box>
@@ -760,108 +734,26 @@ const FileSharing: React.FC = () => {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
-        {(() => {
-          const file = files.find(f => f.file_id === menuFileId);
-          if (!file) return null;
-          
-          if (file.is_owner) {
-            // Show owner actions
-            return [
-              <MenuItem key="manage" onClick={() => {
-                openShareDialog(file);
-                handleMenuClose();
-              }}>
-                <ShareIcon sx={{ mr: 1 }} />
-                Manage Sharing
-              </MenuItem>,
-              <MenuItem key="revoke" onClick={() => {
-                handleRevokeShare(menuFileId!);
-                handleMenuClose();
-              }}>
-                <DeleteIcon sx={{ mr: 1 }} />
-                Revoke Sharing
-              </MenuItem>
-            ];
-          } else {
-            // Show recipient actions
-            return [
-              <MenuItem key="view" onClick={() => {
-                handleViewFile(file);
-                handleMenuClose();
-              }}>
-                <Visibility sx={{ mr: 1 }} />
-                View
-              </MenuItem>,
-              <MenuItem key="download" onClick={() => {
-                handleDownloadFile(file);
-                handleMenuClose();
-              }}>
-                <Download sx={{ mr: 1 }} />
-                Download
-              </MenuItem>
-            ];
+        <MenuItem onClick={() => {
+          if (menuFileId) handleViewFile(menuFileId);
+          handleMenuClose();
+        }}>
+          <Visibility sx={{ mr: 1 }} />
+          View
+        </MenuItem>
+        <MenuItem onClick={() => {
+          if (menuFileId) {
+            const file = sharedWithMeGroups
+              .flatMap(group => group.shared_files)
+              .find(f => f.file_id === menuFileId);
+            if (file) handleDownloadFile(menuFileId, file.display_name);
           }
-        })()}
+          handleMenuClose();
+        }}>
+          <Download sx={{ mr: 1 }} />
+          Download
+        </MenuItem>
       </Menu>
-
-      {/* Share Dialog */}
-      <Dialog open={shareDialogOpen} onClose={() => setShareDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Share File: {selectedFile?.display_name}</DialogTitle>
-        <DialogContent>
-          <TextField
-            fullWidth
-            label="Share with users (usernames or emails)"
-            value={shareForm.shared_users}
-            onChange={(e) => setShareForm({ ...shareForm, shared_users: e.target.value })}
-            margin="normal"
-            helperText="Enter usernames or emails separated by commas (e.g., john_doe, jane@example.com)"
-            placeholder="username1, username2, user@email.com"
-            required
-          />
-
-          <TextField
-            fullWidth
-            label="Expires in (hours)"
-            type="number"
-            value={shareForm.expires_in_hours}
-            onChange={(e) => setShareForm({ ...shareForm, expires_in_hours: parseInt(e.target.value) || 24 })}
-            margin="normal"
-            helperText="Link will expire after this many hours (0 for no expiration)"
-          />
-
-          <FormControlLabel
-            control={
-              <Switch 
-                checked={shareForm.allow_download}
-                onChange={(e) => setShareForm({ ...shareForm, allow_download: e.target.checked })}
-              />
-            }
-            label="Allow downloading"
-            sx={{ mt: 2 }}
-          />
-
-          {shareForm.shared_users && (
-            <Alert severity="info" sx={{ mt: 2 }}>
-              <Typography variant="body2">
-                <strong>User Sharing:</strong> Only the specified users will be able to access this file.
-              </Typography>
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShareDialogOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={handleShareFile}
-            variant="contained"
-            startIcon={<ShareIcon />}
-            disabled={!shareForm.shared_users.trim()}
-          >
-            Share with Users
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Snackbar */}
       <Snackbar

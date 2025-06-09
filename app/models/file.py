@@ -199,6 +199,34 @@ class File(Base):
             "created_at": self.created_at.isoformat(),
             "download_count": self.download_count,
         }
+    
+    def to_shared_dict(self) -> dict:
+        """Convert file to dictionary for shared files (includes owner info)."""
+        result = {
+            "file_id": str(self.id),
+            "filename": self.filename,
+            "display_name": self.display_name,
+            "file_size": self.file_size,
+            "mime_type": self.mime_type,
+            "status": self.status.value,
+            "created_at": self.created_at.isoformat(),
+            "download_count": self.download_count,
+            "view_count": self.view_count,
+        }
+        
+        # Include owner information if the relationship is loaded
+        if hasattr(self, 'owner') and self.owner:
+            result["owner"] = {
+                "id": str(self.owner.id),
+                "user_id": str(self.owner.id),  # For backward compatibility
+                "username": self.owner.username,
+                "email": self.owner.email,
+            }
+        else:
+            # Fallback if owner relationship is not loaded
+            result["owner_id"] = str(self.owner_id)
+        
+        return result
 
 
 class FilePermission(Base):
