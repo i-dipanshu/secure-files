@@ -244,7 +244,16 @@ const FileSharing: React.FC = () => {
   };
 
   const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString();
+    if (!dateString) {
+      return 'Recently';
+    }
+    
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return 'Recently';
+    }
+    
+    return date.toLocaleDateString();
   };
 
   if (loading) {
