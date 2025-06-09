@@ -409,7 +409,7 @@ const FileManager: React.FC = () => {
               },
               body: JSON.stringify({
                 target_user: user,
-                permission_type: 'READ', // Default permission
+                permission_type: 'read', // Default permission
                 expires_hours: shareForm.expires_in_days * 24, // Convert days to hours
               }),
             });

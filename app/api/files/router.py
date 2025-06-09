@@ -26,7 +26,7 @@ from app.api.files.schemas import (
     UserStorageInfo,
     FileErrorResponse
 )
-from app.core.dependencies import DatabaseDep, CurrentUser
+from app.core.dependencies import DatabaseDep, CurrentUser, OptionalCurrentUser
 from app.services.file import file_service
 from app.models.file import FileStatus, FilePermissionType
 from app.core.exceptions import ValidationFailedException, FileNotFoundException
@@ -552,4 +552,121 @@ async def get_storage_info(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve storage information"
+        )
+
+
+@router.get("/public/{file_id}", response_model=FileInfo)
+async def get_public_file_info(
+    db: DatabaseDep,
+    file_id: str,
+    current_user: OptionalCurrentUser = None
+) -> JSONResponse:
+    """
+    Get detailed information about a public file.
+    
+    This endpoint allows both authenticated and anonymous access to public files.
+    If the user is authenticated, they may also access private files they have permissions for.
+    """
+    try:
+        file_obj = await file_service.get_file_by_id(db, file_id, current_user)
+        
+        if not file_obj:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="File not found or access denied"
+            )
+        
+        # For public access, only allow if file is actually public or user has access
+        if not file_obj.is_public and not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="This file requires authentication to access"
+            )
+        
+        # Add owner information for the response
+        file_dict = file_obj.to_dict()
+        if hasattr(file_obj, 'owner') and file_obj.owner:
+            file_dict['owner'] = {
+                'username': file_obj.owner.username
+            }
+        
+        return JSONResponse(content=file_dict)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to get public file info", file_id=file_id, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve file information"
+        )
+
+
+@router.get("/public/{file_id}/download", response_model=FileDownloadResponse)
+async def get_public_file_download(
+    db: DatabaseDep,
+    file_id: str,
+    current_user: OptionalCurrentUser = None,
+    expires_hours: int = Query(1, ge=1, le=24, description="URL expiration time in hours")
+) -> JSONResponse:
+    """
+    Generate a download URL for a public file.
+    
+    This endpoint allows both authenticated and anonymous download of public files.
+    For private files, authentication is required.
+    """
+    try:
+        file_obj = await file_service.get_file_by_id(db, file_id, current_user)
+        
+        if not file_obj:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="File not found or access denied"
+            )
+        
+        # For public access, only allow if file is actually public or user has access
+        if not file_obj.is_public and not current_user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="This file requires authentication to download"
+            )
+        
+        # Store file path and info before any async operations
+        file_path = file_obj.file_path
+        file_dict = file_obj.to_dict()
+        
+        # Update access statistics in a separate transaction
+        try:
+            file_obj.view_count += 1
+            file_obj.download_count += 1
+            file_obj.accessed_at = datetime.now(timezone.utc)
+            await db.commit()
+        except Exception as db_error:
+            logger.warning("Failed to update access stats", error=str(db_error))
+            await db.rollback()
+            # Continue anyway - this is not critical
+        
+        # Generate download URL completely outside of any DB context
+        from app.services.storage import storage_service
+        download_url = await storage_service.generate_presigned_url(
+            file_path=file_path,
+            expires_hours=expires_hours
+        )
+        
+        return JSONResponse(
+            content={
+                "success": True,
+                "download_url": download_url,
+                "expires_in": expires_hours * 3600,  # Convert to seconds
+                "file_info": file_dict
+            }
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Failed to generate public download URL", file_id=file_id, error=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate download URL"
         ) 

@@ -48,8 +48,8 @@ const PublicFileAccess: React.FC = () => {
     try {
       setLoading(true);
       
-      // Try to access the file publicly first
-      const response = await fetch(`http://localhost:8000/api/files/${fileId}`, {
+      // Try to access the file using the public endpoint
+      const response = await fetch(`http://localhost:8000/api/files/public/${fileId}`, {
         headers: {
           'Content-Type': 'application/json',
         },
@@ -57,30 +57,28 @@ const PublicFileAccess: React.FC = () => {
 
       if (response.ok) {
         const data = await response.json();
-        if (data.is_public) {
-          setFile(data);
-        } else {
-          // File is not public, check if user is authenticated
-          const token = zkpService.getToken();
-          if (token) {
-            // User is authenticated, try with auth
-            const authResponse = await fetch(`http://localhost:8000/api/files/${fileId}`, {
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json',
-              },
-            });
+        setFile(data);
+      } else if (response.status === 401) {
+        // File requires authentication
+        const token = zkpService.getToken();
+        if (token) {
+          // User is authenticated, try with auth using the public endpoint
+          const authResponse = await fetch(`http://localhost:8000/api/files/public/${fileId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+          });
 
-            if (authResponse.ok) {
-              const authData = await authResponse.json();
-              setFile(authData);
-            } else {
-              setError('This file is private and you do not have access to it.');
-            }
+          if (authResponse.ok) {
+            const authData = await authResponse.json();
+            setFile(authData);
           } else {
-            // User is not authenticated, redirect to login
-            setError('This file requires authentication. Please log in to access it.');
+            setError('This file is private and you do not have access to it.');
           }
+        } else {
+          // User is not authenticated, redirect to login
+          setError('This file requires authentication. Please log in to access it.');
         }
       } else if (response.status === 404) {
         setError('File not found. The file may have been deleted or the link is invalid.');
@@ -118,7 +116,7 @@ const PublicFileAccess: React.FC = () => {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch(`http://localhost:8000/api/files/${file.file_id}/download`, {
+      const response = await fetch(`http://localhost:8000/api/files/public/${file.file_id}/download`, {
         headers,
       });
 
