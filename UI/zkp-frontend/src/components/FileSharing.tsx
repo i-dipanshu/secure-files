@@ -24,7 +24,6 @@ import {
   ListItem,
   ListItemText,
   ListItemSecondaryAction,
-  Divider,
   FormControlLabel,
   Switch,
   Tooltip,
@@ -36,9 +35,7 @@ import {
   ContentCopy as CopyIcon,
   Delete as DeleteIcon,
   MoreVert,
-  Add as AddIcon,
   Public as PublicIcon,
-  Lock as LockIcon,
   Schedule as ScheduleIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';

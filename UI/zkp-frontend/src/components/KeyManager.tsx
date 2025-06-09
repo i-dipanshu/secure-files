@@ -155,11 +155,6 @@ const KeyManager: React.FC = () => {
     setSuccess('Copied to clipboard!');
   };
 
-  const truncateKey = (key: string, length: number = 20) => {
-    if (key.length <= length) return key;
-    return key.slice(0, length) + '...' + key.slice(-10);
-  };
-
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       {/* Header */}

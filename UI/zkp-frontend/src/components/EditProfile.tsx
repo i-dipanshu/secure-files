@@ -1,4 +1,4 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useContext, useEffect, useCallback } from 'react';
 import {
   Container,
   Typography,
@@ -53,11 +53,7 @@ const EditProfile: React.FC = () => {
     email: '',
   });
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     if (auth?.user) {
       const userProfile = {
         ...auth.user,
@@ -73,7 +69,11 @@ const EditProfile: React.FC = () => {
         email: userProfile.email,
       });
     }
-  };
+  }, [auth?.user]);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
   const showSnackbar = (message: string, severity: 'success' | 'error') => {
     setSnackbar({ open: true, message, severity });
