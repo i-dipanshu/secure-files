@@ -35,10 +35,10 @@ import {
   ContentCopy as CopyIcon,
   Delete as DeleteIcon,
   MoreVert,
-  Public as PublicIcon,
   Schedule as ScheduleIcon,
   Refresh as RefreshIcon,
   Download,
+  Visibility,
 } from '@mui/icons-material';
 import { zkpService } from '../services/zkpService';
 
@@ -85,7 +85,6 @@ const FileSharing: React.FC = () => {
     shared_users: '',
     expires_in_hours: 24,
     allow_download: true,
-    require_auth: true,
   });
 
   const loadSharedFiles = useCallback(async () => {
@@ -309,7 +308,7 @@ const FileSharing: React.FC = () => {
             },
             body: JSON.stringify({
               target_user: user,
-              permission_type: 'read', // Default permission
+              permission_type: 'READ',
               expires_hours: shareForm.expires_in_hours,
             }),
           });
@@ -420,7 +419,6 @@ const FileSharing: React.FC = () => {
       shared_users: '',
       expires_in_hours: 24,
       allow_download: true,
-      require_auth: true,
     });
     setShareDialogOpen(true);
   };
@@ -456,6 +454,42 @@ const FileSharing: React.FC = () => {
     return date.toLocaleDateString();
   };
 
+  const handleViewFile = async (file: SharedFile) => {
+    try {
+      const token = zkpService.getToken();
+      if (!token) {
+        showSnackbar('Authentication required', 'error');
+        return;
+      }
+
+      // Use regular authenticated endpoint for all files
+      const downloadEndpoint = `http://localhost:8000/api/files/${file.file_id}/download`;
+
+      const response = await fetch(downloadEndpoint, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.download_url) {
+          // Open view URL in new tab
+          window.open(data.download_url, '_blank');
+          showSnackbar('File opened for viewing', 'success');
+        } else {
+          showSnackbar('Failed to generate view URL', 'error');
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({ detail: 'View failed' }));
+        showSnackbar(errorData.detail || 'View failed', 'error');
+      }
+    } catch (error) {
+      console.error('View error:', error);
+      showSnackbar('View failed', 'error');
+    }
+  };
+
   const handleDownloadFile = async (file: SharedFile) => {
     try {
       const token = zkpService.getToken();
@@ -476,8 +510,15 @@ const FileSharing: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.download_url) {
-          // Open download URL in new tab
-          window.open(data.download_url, '_blank');
+          // Create a temporary link to trigger download
+          const link = document.createElement('a');
+          link.href = data.download_url;
+          link.download = file.filename || 'download';
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
           showSnackbar('Download started', 'success');
         } else {
           showSnackbar('Failed to generate download URL', 'error');
@@ -651,13 +692,22 @@ const FileSharing: React.FC = () => {
                       ) : (
                         // If file is shared with user, show access options
                         <>
-                          <Button
-                            size="small"
-                            startIcon={<Download />}
-                            onClick={() => handleDownloadFile(file)}
-                          >
-                            Download
-                          </Button>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button
+                              size="small"
+                              startIcon={<Visibility />}
+                              onClick={() => handleViewFile(file)}
+                            >
+                              View
+                            </Button>
+                            <Button
+                              size="small"
+                              startIcon={<Download />}
+                              onClick={() => handleDownloadFile(file)}
+                            >
+                              Download
+                            </Button>
+                          </Box>
                           {file.owner && (
                             <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
                               Shared by {file.owner.username}
@@ -724,6 +774,13 @@ const FileSharing: React.FC = () => {
           } else {
             // Show recipient actions
             return [
+              <MenuItem key="view" onClick={() => {
+                handleViewFile(file);
+                handleMenuClose();
+              }}>
+                <Visibility sx={{ mr: 1 }} />
+                View
+              </MenuItem>,
               <MenuItem key="download" onClick={() => {
                 handleDownloadFile(file);
                 handleMenuClose();
@@ -770,16 +827,6 @@ const FileSharing: React.FC = () => {
             }
             label="Allow downloading"
             sx={{ mt: 2 }}
-          />
-
-          <FormControlLabel
-            control={
-              <Switch 
-                checked={shareForm.require_auth}
-                onChange={(e) => setShareForm({ ...shareForm, require_auth: e.target.checked })}
-              />
-            }
-            label="Require authentication"
           />
 
           {shareForm.shared_users && (

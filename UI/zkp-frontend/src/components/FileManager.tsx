@@ -21,8 +21,6 @@ import {
   IconButton,
   Menu,
   MenuItem,
-  Switch,
-  FormControlLabel,
   Tooltip,
 } from '@mui/material';
 import {
@@ -36,9 +34,8 @@ import {
   Storage,
   Refresh,
   Share,
-  ContentCopy,
   Link as LinkIcon,
-  Lock,
+  Visibility,
 } from '@mui/icons-material';
 import { zkpService } from '../services/zkpService';
 
@@ -109,7 +106,6 @@ const FileManager: React.FC = () => {
     expires_in_days: 7,
     max_downloads: 0, // 0 means unlimited
     shared_users: '', // For private sharing only
-    require_auth: true, // Always require auth now
   });
 
   const showSnackbar = useCallback((message: string, severity: 'success' | 'error') => {
@@ -239,6 +235,39 @@ const FileManager: React.FC = () => {
     }
   };
 
+  const handleView = async (fileInfo: FileInfo) => {
+    try {
+      const token = zkpService.getToken();
+      if (!token) {
+        showSnackbar('Authentication required', 'error');
+        return;
+      }
+
+      const response = await fetch(`http://localhost:8000/api/files/${fileInfo.file_id}/download`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.download_url) {
+          // Open view URL in new tab
+          window.open(data.download_url, '_blank');
+          showSnackbar('File opened for viewing', 'success');
+          await loadFiles(); // Refresh to update view count
+        } else {
+          showSnackbar('Failed to generate view URL', 'error');
+        }
+      } else {
+        showSnackbar('View failed', 'error');
+      }
+    } catch (error) {
+      console.error('View error:', error);
+      showSnackbar('View failed', 'error');
+    }
+  };
+
   const handleDownload = async (fileInfo: FileInfo) => {
     try {
       const token = zkpService.getToken();
@@ -256,8 +285,15 @@ const FileManager: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.download_url) {
-          // Open download URL in new tab
-          window.open(data.download_url, '_blank');
+          // Create a temporary link to trigger download
+          const link = document.createElement('a');
+          link.href = data.download_url;
+          link.download = fileInfo.filename || 'download';
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
           showSnackbar('Download started', 'success');
           await loadFiles(); // Refresh to update download count
         } else {
@@ -372,7 +408,7 @@ const FileManager: React.FC = () => {
             },
             body: JSON.stringify({
               target_user: user,
-              permission_type: 'read', // Default permission
+              permission_type: 'READ', // Use uppercase to match backend enum
               expires_hours: shareForm.expires_in_days * 24, // Convert days to hours
             }),
           });
@@ -393,25 +429,22 @@ const FileManager: React.FC = () => {
       // Show results
       if (successfulShares.length > 0) {
         showSnackbar(`File shared successfully with: ${successfulShares.join(', ')}`, 'success');
-      }
-      if (failedShares.length > 0) {
-        showSnackbar(`Failed to share with: ${failedShares.join(', ')}`, 'error');
-      }
-
-      // Create mock share link for display
-      if (successfulShares.length > 0) {
-        const mockShareLink: ShareLink = {
+        // Show instruction message instead of public URL
+        const shareMessage = `File shared with ${successfulShares.join(', ')}. They can access it by logging in and checking their "Shared with Me" section.`;
+        setShareLink({
           share_id: `share_${Math.random().toString(36).substr(2, 9)}`,
           file_id: selectedFileInfo.file_id,
-          share_url: `http://localhost:3000/public/${selectedFileInfo.file_id}`,
+          share_url: shareMessage, // Use message instead of URL
           expires_at: shareForm.expires_in_days > 0 ? 
             new Date(Date.now() + shareForm.expires_in_days * 24 * 60 * 60 * 1000).toISOString() : 
             undefined,
           max_downloads: shareForm.max_downloads > 0 ? shareForm.max_downloads : undefined,
           download_count: 0,
           created_at: new Date().toISOString(),
-        };
-        setShareLink(mockShareLink);
+        });
+      }
+      if (failedShares.length > 0) {
+        showSnackbar(`Failed to share with: ${failedShares.join(', ')}`, 'error');
       }
       
       await loadData(); // Refresh to update any sharing indicators
@@ -420,16 +453,6 @@ const FileManager: React.FC = () => {
       showSnackbar('Failed to create share link', 'error');
     } finally {
       setCreatingShare(false);
-    }
-  };
-
-  const handleCopyShareLink = () => {
-    if (shareLink) {
-      navigator.clipboard.writeText(shareLink.share_url).then(() => {
-        showSnackbar('Share link copied to clipboard!', 'success');
-      }).catch(() => {
-        showSnackbar('Failed to copy link', 'error');
-      });
     }
   };
 
@@ -472,7 +495,6 @@ const FileManager: React.FC = () => {
       expires_in_days: 7,
       max_downloads: 0,
       shared_users: '',
-      require_auth: true,
     });
     setShareDialogOpen(true);
     setAnchorEl(null);
@@ -663,13 +685,22 @@ const FileManager: React.FC = () => {
                   </Box>
                 </CardContent>
                 <CardActions sx={{ justifyContent: 'space-between' }}>
-                  <Button
-                    size="small"
-                    startIcon={<Download />}
-                    onClick={() => handleDownload(file)}
-                  >
-                    Download
-                  </Button>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      size="small"
+                      startIcon={<Visibility />}
+                      onClick={() => handleView(file)}
+                    >
+                      View
+                    </Button>
+                    <Button
+                      size="small"
+                      startIcon={<Download />}
+                      onClick={() => handleDownload(file)}
+                    >
+                      Download
+                    </Button>
+                  </Box>
                   <Button
                     size="small"
                     startIcon={<Share />}
@@ -817,34 +848,16 @@ const FileManager: React.FC = () => {
           {shareLink ? (
             <Box>
               <Alert severity="success" sx={{ mb: 2 }}>
-                Share link created successfully!
+                File shared successfully!
               </Alert>
               
               <Box sx={{ p: 2, bgcolor: 'grey.100', borderRadius: 1, mb: 2 }}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Share URL:
+                  Sharing Information:
                 </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="body2" sx={{ flex: 1, wordBreak: 'break-all' }}>
-                    {shareLink.share_url}
-                  </Typography>
-                  <Tooltip title="Copy link">
-                    <IconButton size="small" onClick={handleCopyShareLink}>
-                      <ContentCopy />
-                    </IconButton>
-                  </Tooltip>
-                </Box>
-              </Box>
-
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Downloads:
-                  </Typography>
-                  <Typography variant="body2">
-                    {shareLink.download_count} / {shareLink.max_downloads || '∞'}
-                  </Typography>
-                </Box>
+                <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
+                  {shareLink.share_url}
+                </Typography>
               </Box>
 
               {shareLink.expires_at && (
@@ -855,28 +868,16 @@ const FileManager: React.FC = () => {
             </Box>
           ) : (
             <Box>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={shareForm.require_auth}
-                    onChange={(e) => setShareForm({ ...shareForm, require_auth: e.target.checked })}
-                  />
-                }
-                label="Require authentication to access"
-                sx={{ mb: 2 }}
+              <TextField
+                fullWidth
+                label="Share with users (usernames or emails)"
+                value={shareForm.shared_users}
+                onChange={(e) => setShareForm({ ...shareForm, shared_users: e.target.value })}
+                margin="normal"
+                helperText="Enter usernames or emails separated by commas (e.g., john_doe, jane@example.com)"
+                placeholder="username1, username2, user@email.com"
+                required
               />
-
-              {!shareForm.require_auth && (
-                <TextField
-                  fullWidth
-                  label="Share with users (usernames or emails)"
-                  value={shareForm.shared_users}
-                  onChange={(e) => setShareForm({ ...shareForm, shared_users: e.target.value })}
-                  margin="normal"
-                  helperText="Enter usernames or emails separated by commas (e.g., john_doe, jane@example.com)"
-                  placeholder="username1, username2, user@email.com"
-                />
-              )}
 
               <TextField
                 fullWidth
@@ -908,10 +909,10 @@ const FileManager: React.FC = () => {
             <Button
               onClick={handleCreateShare}
               variant="contained"
-              disabled={creatingShare || (!shareForm.require_auth && !shareForm.shared_users.trim())}
+              disabled={creatingShare || !shareForm.shared_users.trim()}
               startIcon={creatingShare ? <CircularProgress size={16} /> : <LinkIcon />}
             >
-              Create Share Link
+              Share with Users
             </Button>
           )}
         </DialogActions>

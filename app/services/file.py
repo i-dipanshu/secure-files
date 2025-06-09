@@ -574,7 +574,15 @@ class FileService:
             )
             await db.commit()
             await db.refresh(existing_permission)
-            return existing_permission
+            
+            # Load the user relationship
+            stmt = select(FilePermission).options(selectinload(FilePermission.user)).where(
+                FilePermission.id == existing_permission.id
+            )
+            result = await db.execute(stmt)
+            permission_with_user = result.scalar_one()
+            
+            return permission_with_user
         
         # Create new permission
         permission = FilePermission(
@@ -592,6 +600,13 @@ class FileService:
         await db.commit()
         await db.refresh(permission)
         
+        # Load the user relationship
+        stmt = select(FilePermission).options(selectinload(FilePermission.user)).where(
+            FilePermission.id == permission.id
+        )
+        result = await db.execute(stmt)
+        permission_with_user = result.scalar_one()
+        
         logger.info(
             "File shared successfully",
             file_id=file_id,
@@ -600,7 +615,7 @@ class FileService:
             permission_type=permission_type.value
         )
         
-        return permission
+        return permission_with_user
     
     async def revoke_file_access(
         self,
