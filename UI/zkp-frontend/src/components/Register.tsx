@@ -130,7 +130,10 @@ const Register: React.FC = () => {
           navigate('/login');
         }, 2000);
       } else {
-        setError(result?.error || 'Registration failed. Please try again.');
+        // Fix: Properly extract error message from potential object
+        const errorMessage = typeof result?.error === 'string' ? result.error :
+                            result?.error || 'Registration failed. Please try again.';
+        setError(errorMessage);
       }
     } catch (err: any) {
       setError('Registration failed: ' + err.message);

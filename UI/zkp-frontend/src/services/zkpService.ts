@@ -320,8 +320,50 @@ class ZKPService {
       console.error('Full error object:', error);
       
       if (error.response?.data) {
-        return error.response.data;
+        const responseData = error.response.data;
+        
+        // Handle FastAPI validation errors
+        if (responseData.detail && Array.isArray(responseData.detail)) {
+          const firstError = responseData.detail[0];
+          const errorMessage = firstError.msg || 'Validation error';
+          return {
+            success: false,
+            error: {
+              type: 'ValidationError',
+              message: errorMessage,
+              code: 'VALIDATION_ERROR',
+            },
+          };
+        }
+        
+        // Handle standard API error responses
+        if (responseData.success === false && responseData.error) {
+          return responseData;
+        }
+        
+        // Handle other error formats
+        if (responseData.message || responseData.detail) {
+          return {
+            success: false,
+            error: {
+              type: 'APIError',
+              message: responseData.message || responseData.detail || 'Unknown error',
+              code: 'API_ERROR',
+            },
+          };
+        }
+        
+        // Fallback for unknown response formats
+        return {
+          success: false,
+          error: {
+            type: 'UnknownError',
+            message: 'An unknown error occurred',
+            code: 'UNKNOWN_ERROR',
+          },
+        };
       }
+      
       return {
         success: false,
         error: {
@@ -366,8 +408,50 @@ class ZKPService {
       return response.data;
     } catch (error: any) {
       if (error.response?.data) {
-        return error.response.data;
+        const responseData = error.response.data;
+        
+        // Handle FastAPI validation errors
+        if (responseData.detail && Array.isArray(responseData.detail)) {
+          const firstError = responseData.detail[0];
+          const errorMessage = firstError.msg || 'Validation error';
+          return {
+            success: false,
+            error: {
+              type: 'ValidationError',
+              message: errorMessage,
+              code: 'VALIDATION_ERROR',
+            },
+          };
+        }
+        
+        // Handle standard API error responses
+        if (responseData.success === false && responseData.error) {
+          return responseData;
+        }
+        
+        // Handle other error formats
+        if (responseData.message || responseData.detail) {
+          return {
+            success: false,
+            error: {
+              type: 'APIError',
+              message: responseData.message || responseData.detail || 'Unknown error',
+              code: 'API_ERROR',
+            },
+          };
+        }
+        
+        // Fallback for unknown response formats
+        return {
+          success: false,
+          error: {
+            type: 'UnknownError',
+            message: 'An unknown error occurred',
+            code: 'UNKNOWN_ERROR',
+          },
+        };
       }
+      
       return {
         success: false,
         error: {
@@ -408,8 +492,50 @@ class ZKPService {
       return response.data;
     } catch (error: any) {
       if (error.response?.data) {
-        return error.response.data;
+        const responseData = error.response.data;
+        
+        // Handle FastAPI validation errors
+        if (responseData.detail && Array.isArray(responseData.detail)) {
+          const firstError = responseData.detail[0];
+          const errorMessage = firstError.msg || 'Validation error';
+          return {
+            success: false,
+            error: {
+              type: 'ValidationError',
+              message: errorMessage,
+              code: 'VALIDATION_ERROR',
+            },
+          };
+        }
+        
+        // Handle standard API error responses
+        if (responseData.success === false && responseData.error) {
+          return responseData;
+        }
+        
+        // Handle other error formats
+        if (responseData.message || responseData.detail) {
+          return {
+            success: false,
+            error: {
+              type: 'APIError',
+              message: responseData.message || responseData.detail || 'Unknown error',
+              code: 'API_ERROR',
+            },
+          };
+        }
+        
+        // Fallback for unknown response formats
+        return {
+          success: false,
+          error: {
+            type: 'UnknownError',
+            message: 'An unknown error occurred',
+            code: 'UNKNOWN_ERROR',
+          },
+        };
       }
+      
       return {
         success: false,
         error: {
