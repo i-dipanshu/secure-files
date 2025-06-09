@@ -172,8 +172,8 @@ const FileSharing: React.FC = () => {
         return;
       }
 
-      // Get user's own files first
-      const filesResponse = await fetch('http://localhost:8000/api/files/', {
+      // Get user's own files first (only ACTIVE files)
+      const filesResponse = await fetch('http://localhost:8000/api/files/?status_filter=active', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -255,7 +255,7 @@ const FileSharing: React.FC = () => {
       });
 
       setUserSharingGroups(Object.values(userGroups));
-      console.log('User sharing groups loaded:', Object.values(userGroups));
+      console.log('User sharing groups loaded:', Object.values(userGroups).length);
     } catch (error) {
       console.error('Error loading user sharing groups:', error);
       setUserSharingGroups([]);
@@ -280,9 +280,24 @@ const FileSharing: React.FC = () => {
   };
 
   const handleRevokeUserAccess = async (userId: string, username: string) => {
-    if (!window.confirm(`Are you sure you want to revoke all file access for ${username}?`)) return;
+    const confirmMessage = `⚠️ REVOKE ALL ACCESS CONFIRMATION ⚠️
+
+User: ${username}
+
+IMPORTANT: This will revoke access to ALL files you've shared with this user.
+They will immediately lose access to:
+• View any shared files
+• Download any shared files  
+• Any other permissions you've granted
+
+This action cannot be undone. You would need to re-share files individually.
+
+Are you sure you want to revoke ALL file access for ${username}?`;
+
+    if (!window.confirm(confirmMessage)) return;
 
     try {
+      setLoading(true);
       const token = zkpService.getToken();
       if (!token) {
         showSnackbar('Authentication required', 'error');
@@ -321,8 +336,8 @@ const FileSharing: React.FC = () => {
       }
 
       if (successCount > 0) {
-        showSnackbar(`Revoked access to ${successCount} file(s) for ${username}`, 'success');
-        // Force reload data to refresh UI
+        showSnackbar(`Successfully revoked access to ${successCount} file(s) for ${username}`, 'success');
+        // Force reload all data to refresh UI
         await loadData();
       }
       if (failCount > 0) {
@@ -331,13 +346,29 @@ const FileSharing: React.FC = () => {
     } catch (error) {
       console.error('Revoke access error:', error);
       showSnackbar('Failed to revoke access', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleRevokeFileAccess = async (fileId: string, userId: string, filename: string, username: string) => {
-    if (!window.confirm(`Are you sure you want to revoke ${username}'s access to "${filename}"?`)) return;
+    const confirmMessage = `⚠️ REVOKE FILE ACCESS CONFIRMATION ⚠️
+
+File: "${filename}"
+User: ${username}
+
+This will immediately revoke ${username}'s access to this file.
+They will no longer be able to:
+• View the file
+• Download the file
+• Access it in any way
+
+Are you sure you want to revoke ${username}'s access to "${filename}"?`;
+
+    if (!window.confirm(confirmMessage)) return;
 
     try {
+      setLoading(true);
       const token = zkpService.getToken();
       if (!token) {
         showSnackbar('Authentication required', 'error');
@@ -353,7 +384,7 @@ const FileSharing: React.FC = () => {
 
       if (response.ok) {
         showSnackbar(`Revoked ${username}'s access to "${filename}"`, 'success');
-        // Force reload data to refresh UI
+        // Force reload all data to refresh UI
         await loadData();
       } else {
         const errorData = await response.json().catch(() => ({ detail: 'Failed to revoke access' }));
@@ -365,6 +396,8 @@ const FileSharing: React.FC = () => {
     } catch (error) {
       console.error('Revoke access error:', error);
       showSnackbar('Failed to revoke access', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 

@@ -21,6 +21,8 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  Switch,
+  Tooltip,
 } from '@mui/material';
 import {
   CloudUpload,
@@ -60,31 +62,21 @@ interface StorageInfo {
   storage_percentage: number;
 }
 
-interface ShareLink {
-  share_id: string;
-  file_id: string;
-  share_url: string;
-  expires_at?: string;
-  max_downloads?: number;
-  download_count: number;
-  created_at: string;
-}
-
 const FileManager: React.FC = () => {
   const [files, setFiles] = useState<FileInfo[]>([]);
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFile, setSelectedFile] = useState<FileInfo | null>(null);
+  const [selectedUploadFile, setSelectedUploadFile] = useState<File | null>(null);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
-  const [selectedFileInfo, setSelectedFileInfo] = useState<FileInfo | null>(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [menuFileId, setMenuFileId] = useState<string | null>(null);
-  const [shareLink, setShareLink] = useState<ShareLink | null>(null);
   const [creatingShare, setCreatingShare] = useState(false);
+  const [showDeletedFiles, setShowDeletedFiles] = useState(false);
 
   // Upload form state
   const [uploadForm, setUploadForm] = useState({
@@ -94,18 +86,15 @@ const FileManager: React.FC = () => {
   });
 
   // Edit form state
-  const [editForm, setEditForm] = useState({
+  const [editFileData, setEditFileData] = useState({
     display_name: '',
     description: '',
     tags: '',
   });
 
   // Share form state
-  const [shareForm, setShareForm] = useState({
-    expires_in_days: 7,
-    max_downloads: 0, // 0 means unlimited
-    shared_users: '', // For private sharing only
-  });
+  const [shareEmail, setShareEmail] = useState('');
+  const [shareExpiry, setShareExpiry] = useState(7);
 
   const showSnackbar = useCallback((message: string, severity: 'success' | 'error') => {
     setSnackbar({ open: true, message, severity });
@@ -115,10 +104,19 @@ const FileManager: React.FC = () => {
     try {
       const token = zkpService.getToken();
       if (!token) {
-        throw new Error('No authentication token found');
+        console.error('No authentication token');
+        return;
       }
 
-      const response = await fetch('http://localhost:8000/api/files/', {
+      // Build URL with proper status filtering
+      let url = 'http://localhost:8000/api/files/';
+      if (!showDeletedFiles) {
+        // When toggle is OFF, only show ACTIVE files
+        url += '?status_filter=active';
+      }
+      // When toggle is ON, show all files (no status filter)
+
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -127,21 +125,21 @@ const FileManager: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         setFiles(data.files || []);
+        console.log('Files loaded:', data.files?.length || 0, showDeletedFiles ? '(including deleted)' : '(active only)');
       } else {
-        throw new Error('Failed to load files');
+        console.error('Failed to load files:', response.status);
+        setFiles([]);
       }
     } catch (error) {
       console.error('Error loading files:', error);
-      showSnackbar('Failed to load files', 'error');
+      setFiles([]);
     }
-  }, [showSnackbar]);
+  }, [showDeletedFiles]);
 
   const loadStorageInfo = useCallback(async () => {
     try {
       const token = zkpService.getToken();
-      if (!token) {
-        throw new Error('No authentication token found');
-      }
+      if (!token) return;
 
       const response = await fetch('http://localhost:8000/api/files/storage/info', {
         headers: {
@@ -152,14 +150,11 @@ const FileManager: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         setStorageInfo(data);
-      } else {
-        throw new Error('Failed to load storage info');
       }
     } catch (error) {
       console.error('Error loading storage info:', error);
-      showSnackbar('Failed to load storage information', 'error');
     }
-  }, [showSnackbar]);
+  }, []);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -174,17 +169,16 @@ const FileManager: React.FC = () => {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      setSelectedFile(file);
+      setSelectedUploadFile(file);
       setUploadForm({
         ...uploadForm,
         display_name: file.name,
       });
-      setUploadDialogOpen(true);
     }
   };
 
   const handleUpload = async () => {
-    if (!selectedFile) return;
+    if (!selectedUploadFile) return;
 
     setUploading(true);
     try {
@@ -195,12 +189,12 @@ const FileManager: React.FC = () => {
       }
 
       const formData = new FormData();
-      formData.append('file', selectedFile);
+      formData.append('file', selectedUploadFile);
       formData.append('display_name', uploadForm.display_name);
       formData.append('description', uploadForm.description);
       formData.append('tags', uploadForm.tags);
 
-      console.log('Uploading file:', selectedFile.name, selectedFile.type, selectedFile.size);
+      console.log('Uploading file:', selectedUploadFile.name, selectedUploadFile.type, selectedUploadFile.size);
 
       const response = await fetch('http://localhost:8000/api/files/upload', {
         method: 'POST',
@@ -215,7 +209,7 @@ const FileManager: React.FC = () => {
         console.log('Upload successful:', result);
         showSnackbar('File uploaded successfully!', 'success');
         setUploadDialogOpen(false);
-        setSelectedFile(null);
+        setSelectedUploadFile(null);
         setUploadForm({ display_name: '', description: '', tags: '' });
         await loadData();
       } else {
@@ -234,7 +228,7 @@ const FileManager: React.FC = () => {
     }
   };
 
-  const handleView = async (fileInfo: FileInfo) => {
+  const handleViewFile = async (fileId: string) => {
     try {
       const token = zkpService.getToken();
       if (!token) {
@@ -242,7 +236,7 @@ const FileManager: React.FC = () => {
         return;
       }
 
-      const response = await fetch(`http://localhost:8000/api/files/${fileInfo.file_id}/download`, {
+      const response = await fetch(`http://localhost:8000/api/files/${fileId}/download`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -254,7 +248,7 @@ const FileManager: React.FC = () => {
           // Open view URL in new tab
           window.open(data.download_url, '_blank');
           showSnackbar('File opened for viewing', 'success');
-          await loadFiles(); // Refresh to update view count
+          await loadData(); // Refresh to update view count
         } else {
           showSnackbar('Failed to generate view URL', 'error');
         }
@@ -267,7 +261,7 @@ const FileManager: React.FC = () => {
     }
   };
 
-  const handleDownload = async (fileInfo: FileInfo) => {
+  const handleDownloadFile = async (fileId: string, fileName: string) => {
     try {
       const token = zkpService.getToken();
       if (!token) {
@@ -275,7 +269,7 @@ const FileManager: React.FC = () => {
         return;
       }
 
-      const response = await fetch(`http://localhost:8000/api/files/${fileInfo.file_id}/download`, {
+      const response = await fetch(`http://localhost:8000/api/files/${fileId}/download`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -293,7 +287,7 @@ const FileManager: React.FC = () => {
             const blobUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = blobUrl;
-            link.download = fileInfo.display_name || fileInfo.filename || 'download';
+            link.download = fileName || 'download';
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -302,7 +296,7 @@ const FileManager: React.FC = () => {
             window.URL.revokeObjectURL(blobUrl);
             
             showSnackbar('Download started', 'success');
-            await loadFiles(); // Refresh to update download count
+            await loadData(); // Refresh to update download count
           } else {
             showSnackbar('Failed to download file content', 'error');
           }
@@ -318,51 +312,27 @@ const FileManager: React.FC = () => {
     }
   };
 
-  const handleEdit = async () => {
-    if (!selectedFileInfo) return;
-
-    try {
-      const token = zkpService.getToken();
-      if (!token) {
-        showSnackbar('Authentication required', 'error');
-        return;
-      }
-
-      const response = await fetch(`http://localhost:8000/api/files/${selectedFileInfo.file_id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          display_name: editForm.display_name,
-          description: editForm.description,
-          tags: editForm.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
-        }),
-      });
-
-      if (response.ok) {
-        showSnackbar('File updated successfully!', 'success');
-        setEditDialogOpen(false);
-        setSelectedFileInfo(null);
-        await loadData();
-      } else {
-        const errorData = await response.json().catch(() => ({ detail: 'Update failed' }));
-        const errorMessage = typeof errorData === 'string' ? errorData : 
-                            errorData.detail || 
-                            (errorData.message ? errorData.message : 'Update failed');
-        showSnackbar(errorMessage, 'error');
-      }
-    } catch (error) {
-      console.error('Update error:', error);
-      showSnackbar('Update failed', 'error');
-    }
-  };
-
   const handleDelete = async (fileId: string) => {
-    if (!window.confirm('Are you sure you want to delete this file?')) return;
+    const file = files.find(f => f.file_id === fileId);
+    if (!file) return;
+
+    // Enhanced delete confirmation with sharing consequences warning
+    const confirmMessage = `⚠️ DELETE FILE CONFIRMATION ⚠️
+
+File: "${file.display_name}"
+
+IMPORTANT: Deleting this file will:
+• Remove it from your file manager
+• Revoke access for ALL users you've shared it with
+• Make it inaccessible to anyone who had permission to view/download it
+• This action cannot be undone
+
+Are you absolutely sure you want to delete this file?`;
+
+    if (!window.confirm(confirmMessage)) return;
 
     try {
+      setLoading(true);
       const token = zkpService.getToken();
       if (!token) {
         showSnackbar('Authentication required', 'error');
@@ -377,7 +347,8 @@ const FileManager: React.FC = () => {
       });
 
       if (response.ok) {
-        showSnackbar('File deleted successfully!', 'success');
+        showSnackbar(`File "${file.display_name}" deleted successfully!`, 'success');
+        // Force reload both files and storage info to reflect changes
         await loadData();
       } else {
         const errorData = await response.json().catch(() => ({ detail: 'Delete failed' }));
@@ -389,11 +360,13 @@ const FileManager: React.FC = () => {
     } catch (error) {
       console.error('Delete error:', error);
       showSnackbar('Delete failed', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleCreateShare = async () => {
-    if (!selectedFileInfo) return;
+    if (!selectedFile) return;
 
     setCreatingShare(true);
     try {
@@ -404,13 +377,13 @@ const FileManager: React.FC = () => {
       }
 
       // For private sharing, use the backend API for each user
-      const sharedUsers = shareForm.shared_users.split(',').map(u => u.trim()).filter(u => u);
+      const sharedUsers = shareEmail.split(',').map(u => u.trim()).filter(u => u);
       const successfulShares: string[] = [];
       const failedShares: string[] = [];
 
       for (const user of sharedUsers) {
         try {
-          const response = await fetch(`http://localhost:8000/api/files/${selectedFileInfo.file_id}/share`, {
+          const response = await fetch(`http://localhost:8000/api/files/${selectedFile.file_id}/share`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -419,7 +392,7 @@ const FileManager: React.FC = () => {
             body: JSON.stringify({
               target_user: user,
               permission_type: 'read', // Use lowercase to match backend enum
-              expires_hours: shareForm.expires_in_days * 24, // Convert days to hours
+              expires_hours: shareExpiry, // Use shareExpiry instead of shareForm
             }),
           });
 
@@ -439,19 +412,9 @@ const FileManager: React.FC = () => {
       // Show results
       if (successfulShares.length > 0) {
         showSnackbar(`File shared successfully with: ${successfulShares.join(', ')}`, 'success');
-        // Show instruction message instead of public URL
-        const shareMessage = `File shared with ${successfulShares.join(', ')}. They can access it by logging in and checking their "Shared with Me" section.`;
-        setShareLink({
-          share_id: `share_${Math.random().toString(36).substr(2, 9)}`,
-          file_id: selectedFileInfo.file_id,
-          share_url: shareMessage, // Use message instead of URL
-          expires_at: shareForm.expires_in_days > 0 ? 
-            new Date(Date.now() + shareForm.expires_in_days * 24 * 60 * 60 * 1000).toISOString() : 
-            undefined,
-          max_downloads: shareForm.max_downloads > 0 ? shareForm.max_downloads : undefined,
-          download_count: 0,
-          created_at: new Date().toISOString(),
-        });
+        setShareDialogOpen(false);
+        setSelectedFile(null);
+        setShareEmail('');
       }
       if (failedShares.length > 0) {
         showSnackbar(`Failed to share with: ${failedShares.join(', ')}`, 'error');
@@ -487,27 +450,21 @@ const FileManager: React.FC = () => {
     return date.toLocaleDateString();
   };
 
-  const openEditDialog = (fileInfo: FileInfo) => {
-    setSelectedFileInfo(fileInfo);
-    setEditForm({
-      display_name: fileInfo.display_name,
-      description: fileInfo.description || '',
-      tags: Array.isArray(fileInfo.tags) ? fileInfo.tags.join(', ') : '',
+  const openEditDialog = (file: FileInfo) => {
+    setSelectedFile(file);
+    setEditFileData({
+      display_name: file.display_name,
+      description: file.description || '',
+      tags: file.tags.join(', '),
     });
     setEditDialogOpen(true);
-    setAnchorEl(null);
   };
 
   const openShareDialog = (fileInfo: FileInfo) => {
-    setSelectedFileInfo(fileInfo);
-    setShareLink(null);
-    setShareForm({
-      expires_in_days: 7,
-      max_downloads: 0,
-      shared_users: '',
-    });
+    setSelectedFile(fileInfo);
+    setShareEmail('');
+    setShareExpiry(7);
     setShareDialogOpen(true);
-    setAnchorEl(null);
   };
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, fileId: string) => {
@@ -522,22 +479,66 @@ const FileManager: React.FC = () => {
 
   const handleCloseUploadDialog = () => {
     setUploadDialogOpen(false);
-    setSelectedFile(null);
+    setSelectedUploadFile(null);
+  };
+
+  const handleOpenUploadDialog = () => {
+    setUploadDialogOpen(true);
   };
 
   const handleCloseEditDialog = () => {
     setEditDialogOpen(false);
-    setSelectedFileInfo(null);
+    setSelectedFile(null);
   };
 
   const handleCloseShareDialog = () => {
     setShareDialogOpen(false);
-    setSelectedFileInfo(null);
-    setShareLink(null);
+    setSelectedFile(null);
   };
 
   const handleSnackbarClose = () => {
     setSnackbar({ ...snackbar, open: false });
+  };
+
+  const handleEditSave = async () => {
+    if (!selectedFile) return;
+
+    try {
+      const token = zkpService.getToken();
+      if (!token) {
+        showSnackbar('Authentication required', 'error');
+        return;
+      }
+
+      const response = await fetch(`http://localhost:8000/api/files/${selectedFile.file_id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          display_name: editFileData.display_name,
+          description: editFileData.description,
+          tags: editFileData.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
+        }),
+      });
+
+      if (response.ok) {
+        showSnackbar('File updated successfully!', 'success');
+        setEditDialogOpen(false);
+        setSelectedFile(null);
+        await loadData();
+      } else {
+        const errorData = await response.json().catch(() => ({ detail: 'Update failed' }));
+        const errorMessage = typeof errorData === 'string' ? errorData : 
+                            errorData.detail || 
+                            (errorData.message ? errorData.message : 'Update failed');
+        showSnackbar(errorMessage, 'error');
+      }
+    } catch (error) {
+      console.error('Edit error:', error);
+      showSnackbar('Update failed', 'error');
+    }
   };
 
   if (loading) {
@@ -560,28 +561,55 @@ const FileManager: React.FC = () => {
             File Manager
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          {/* Show Deleted Files Toggle */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Show deleted files
+            </Typography>
+            <Switch
+              checked={showDeletedFiles}
+              onChange={(e) => setShowDeletedFiles(e.target.checked)}
+              size="small"
+              color="primary"
+            />
+          </Box>
           <Button
             variant="outlined"
             startIcon={<Refresh />}
             onClick={loadData}
+            disabled={loading}
           >
             Refresh
           </Button>
           <Button
             variant="contained"
             startIcon={<CloudUpload />}
-            component="label"
+            onClick={handleOpenUploadDialog}
           >
             Upload File
-            <input
-              type="file"
-              hidden
-              onChange={handleFileSelect}
-              accept="*/*"
-            />
           </Button>
         </Box>
+      </Box>
+
+      {/* File Status Information */}
+      <Box sx={{ mb: 3 }}>
+        <Alert 
+          severity={showDeletedFiles ? "warning" : "info"} 
+          sx={{ display: 'flex', alignItems: 'center' }}
+        >
+          <Typography variant="body2">
+            {showDeletedFiles 
+              ? `Showing ${files.filter(f => f.status === 'active').length} active and ${files.filter(f => f.status === 'deleted').length} deleted files`
+              : `Showing ${files.length} active files only`
+            }
+            {showDeletedFiles && (
+              <span style={{ marginLeft: '8px', fontWeight: 'bold' }}>
+                • Deleted files are shown with reduced opacity and cannot be shared or downloaded
+              </span>
+            )}
+          </Typography>
+        </Alert>
       </Box>
 
       {/* Storage Info */}
@@ -633,94 +661,138 @@ const FileManager: React.FC = () => {
           }}
         >
           {files.map((file) => (
-            <Box key={file.file_id}>
-              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                <CardContent sx={{ flexGrow: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="h6" noWrap title={file.display_name}>
-                        {file.display_name}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" noWrap>
-                        {file.filename}
-                      </Typography>
-                    </Box>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => handleMenuOpen(e, file.file_id)}
-                    >
-                      <MoreVert />
-                    </IconButton>
-                  </Box>
-
-                  <Box sx={{ mt: 2 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      {formatFileSize(file.file_size)} • {file.mime_type}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {formatDate(file.created_at)}
-                    </Typography>
-                  </Box>
-
-                  {file.description && (
-                    <Typography variant="body2" sx={{ mt: 1 }} noWrap title={file.description}>
-                      {file.description}
-                    </Typography>
-                  )}
-
-                  {Array.isArray(file.tags) && file.tags.length > 0 && (
-                    <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {file.tags.slice(0, 2).map((tag) => (
-                        <Chip key={tag} label={tag} size="small" variant="outlined" />
-                      ))}
-                      {file.tags.length > 2 && (
-                        <Chip label={`+${file.tags.length - 2}`} size="small" variant="outlined" />
-                      )}
-                    </Box>
-                  )}
-
-                  <Box sx={{ mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">
-                        Views: {file.view_count || 0} • Downloads: {file.download_count || 0}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <Chip
-                        label={file.status}
-                        size="small"
-                        color={file.status === 'ACTIVE' ? 'success' : 'default'}
-                      />
-                    </Box>
-                  </Box>
-                </CardContent>
-                <CardActions sx={{ justifyContent: 'space-between' }}>
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button
-                      size="small"
-                      startIcon={<Visibility />}
-                      onClick={() => handleView(file)}
-                    >
-                      View
-                    </Button>
-                    <Button
-                      size="small"
-                      startIcon={<Download />}
-                      onClick={() => handleDownload(file)}
-                    >
-                      Download
-                    </Button>
-                  </Box>
-                  <Button
-                    size="small"
-                    startIcon={<Share />}
-                    onClick={() => openShareDialog(file)}
+            <Card 
+              key={file.file_id} 
+              sx={{ 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column',
+                opacity: file.status === 'deleted' ? 0.5 : 1,
+                border: file.status === 'deleted' ? '2px dashed #ccc' : 'none',
+                position: 'relative',
+                backgroundColor: file.status === 'deleted' ? '#fafafa' : 'white'
+              }}
+            >
+              {/* Deleted File Badge */}
+              {file.status === 'deleted' && (
+                <Tooltip title="This file has been deleted and cannot be shared or downloaded" arrow>
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: 8,
+                      right: 8,
+                      zIndex: 1,
+                      backgroundColor: '#f44336',
+                      color: 'white',
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      fontSize: '0.75rem',
+                      fontWeight: 'bold',
+                      textTransform: 'uppercase',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                      cursor: 'help'
+                    }}
                   >
-                    Share
-                  </Button>
-                </CardActions>
-              </Card>
-            </Box>
+                    DELETED
+                  </Box>
+                </Tooltip>
+              )}
+              
+              <CardContent sx={{ flexGrow: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', flex: 1, minWidth: 0 }}>
+                    <FilePresent sx={{ mr: 1, color: 'primary.main' }} />
+                    <Typography 
+                      variant="h6" 
+                      component="h3" 
+                      sx={{ 
+                        fontWeight: 'bold',
+                        wordBreak: 'break-word',
+                        textDecoration: file.status === 'deleted' ? 'line-through' : 'none'
+                      }}
+                    >
+                      {file.display_name}
+                    </Typography>
+                  </Box>
+                  <IconButton
+                    size="small"
+                    onClick={(e) => handleMenuOpen(e, file.file_id)}
+                    disabled={file.status === 'deleted'}
+                  >
+                    <MoreVert />
+                  </IconButton>
+                </Box>
+
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  {formatFileSize(file.file_size)} • {file.mime_type}
+                </Typography>
+
+                {file.description && (
+                  <Typography variant="body2" sx={{ mb: 1, color: 'text.secondary' }}>
+                    {file.description}
+                  </Typography>
+                )}
+
+                {file.tags && file.tags.length > 0 && (
+                  <Box sx={{ mb: 1 }}>
+                    {file.tags.slice(0, 3).map((tag, index) => (
+                      <Chip
+                        key={index}
+                        label={tag}
+                        size="small"
+                        sx={{ mr: 0.5, mb: 0.5 }}
+                        color="primary"
+                        variant="outlined"
+                      />
+                    ))}
+                    {file.tags.length > 3 && (
+                      <Chip
+                        label={`+${file.tags.length - 3} more`}
+                        size="small"
+                        sx={{ mr: 0.5, mb: 0.5 }}
+                        color="default"
+                        variant="outlined"
+                      />
+                    )}
+                  </Box>
+                )}
+
+                <Typography variant="caption" color="text.secondary">
+                  Uploaded: {formatDate(file.created_at)}
+                </Typography>
+                <br />
+                <Typography variant="caption" color="text.secondary">
+                  Downloads: {file.download_count} • Views: {file.view_count}
+                </Typography>
+              </CardContent>
+
+              <CardActions>
+                <Button
+                  size="small"
+                  startIcon={<Visibility />}
+                  onClick={() => handleViewFile(file.file_id)}
+                  disabled={file.status === 'deleted'}
+                >
+                  View
+                </Button>
+                <Button
+                  size="small"
+                  startIcon={<Download />}
+                  onClick={() => handleDownloadFile(file.file_id, file.display_name)}
+                  disabled={file.status === 'deleted'}
+                >
+                  Download
+                </Button>
+                <Button
+                  size="small"
+                  startIcon={<Share />}
+                  onClick={() => openShareDialog(file)}
+                  disabled={file.status === 'deleted'}
+                >
+                  Share
+                </Button>
+              </CardActions>
+            </Card>
           ))}
         </Box>
       )}
@@ -731,25 +803,38 @@ const FileManager: React.FC = () => {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
-        <MenuItem onClick={() => {
-          const file = files.find(f => f.file_id === menuFileId);
-          if (file) openEditDialog(file);
-        }}>
+        <MenuItem 
+          onClick={() => {
+            const file = files.find(f => f.file_id === menuFileId);
+            if (file && file.status !== 'deleted') openEditDialog(file);
+            handleMenuClose();
+          }}
+          disabled={files.find(f => f.file_id === menuFileId)?.status === 'deleted'}
+        >
           <Edit sx={{ mr: 1 }} />
           Edit
         </MenuItem>
-        <MenuItem onClick={() => {
-          const file = files.find(f => f.file_id === menuFileId);
-          if (file) openShareDialog(file);
-        }}>
+        <MenuItem 
+          onClick={() => {
+            const file = files.find(f => f.file_id === menuFileId);
+            if (file && file.status !== 'deleted') openShareDialog(file);
+            handleMenuClose();
+          }}
+          disabled={files.find(f => f.file_id === menuFileId)?.status === 'deleted'}
+        >
           <Share sx={{ mr: 1 }} />
           Share
         </MenuItem>
-        <MenuItem onClick={() => {
-          if (menuFileId) handleDelete(menuFileId);
-        }}>
+        <MenuItem 
+          onClick={() => {
+            if (menuFileId) handleDelete(menuFileId);
+            handleMenuClose();
+          }}
+          disabled={files.find(f => f.file_id === menuFileId)?.status === 'deleted'}
+          sx={{ color: 'error.main' }}
+        >
           <Delete sx={{ mr: 1 }} />
-          Delete
+          {files.find(f => f.file_id === menuFileId)?.status === 'deleted' ? 'Already Deleted' : 'Delete'}
         </MenuItem>
       </Menu>
 
@@ -757,11 +842,18 @@ const FileManager: React.FC = () => {
       <Dialog open={uploadDialogOpen} onClose={handleCloseUploadDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Upload File</DialogTitle>
         <DialogContent>
-          {selectedFile && (
+          {selectedUploadFile && (
             <Alert severity="info" sx={{ mb: 2 }}>
-              Selected: {selectedFile.name} ({formatFileSize(selectedFile.size)})
+              Selected: {selectedUploadFile.name} ({formatFileSize(selectedUploadFile.size)})
             </Alert>
           )}
+          
+          <input
+            type="file"
+            onChange={handleFileSelect}
+            style={{ marginBottom: '16px', width: '100%' }}
+          />
+
           <TextField
             fullWidth
             label="Display Name"
@@ -786,6 +878,14 @@ const FileManager: React.FC = () => {
             margin="normal"
             helperText="Enter tags separated by commas"
           />
+
+          {uploading && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Upload Progress: {uploading ? 'Uploading...' : 'Upload completed'}
+              </Typography>
+            </Box>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseUploadDialog}>
@@ -794,7 +894,7 @@ const FileManager: React.FC = () => {
           <Button
             onClick={handleUpload}
             variant="contained"
-            disabled={uploading || !selectedFile}
+            disabled={uploading || !selectedUploadFile}
             startIcon={uploading ? <CircularProgress size={16} /> : <CloudUpload />}
           >
             Upload
@@ -809,15 +909,15 @@ const FileManager: React.FC = () => {
           <TextField
             fullWidth
             label="Display Name"
-            value={editForm.display_name}
-            onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })}
+            value={editFileData.display_name}
+            onChange={(e) => setEditFileData({ ...editFileData, display_name: e.target.value })}
             margin="normal"
           />
           <TextField
             fullWidth
             label="Description"
-            value={editForm.description}
-            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+            value={editFileData.description}
+            onChange={(e) => setEditFileData({ ...editFileData, description: e.target.value })}
             margin="normal"
             multiline
             rows={3}
@@ -825,8 +925,8 @@ const FileManager: React.FC = () => {
           <TextField
             fullWidth
             label="Tags (comma-separated)"
-            value={editForm.tags}
-            onChange={(e) => setEditForm({ ...editForm, tags: e.target.value })}
+            value={editFileData.tags}
+            onChange={(e) => setEditFileData({ ...editFileData, tags: e.target.value })}
             margin="normal"
             helperText="Enter tags separated by commas"
           />
@@ -836,7 +936,7 @@ const FileManager: React.FC = () => {
             Cancel
           </Button>
           <Button
-            onClick={handleEdit}
+            onClick={handleEditSave}
             variant="contained"
             startIcon={<Edit />}
           >
@@ -849,82 +949,45 @@ const FileManager: React.FC = () => {
       <Dialog open={shareDialogOpen} onClose={handleCloseShareDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Share File</DialogTitle>
         <DialogContent>
-          {selectedFileInfo && (
+          {selectedFile && (
             <Alert severity="info" sx={{ mb: 2 }}>
-              Sharing: {selectedFileInfo.display_name}
+              Sharing: {selectedFile.display_name}
             </Alert>
           )}
           
-          {shareLink ? (
-            <Box>
-              <Alert severity="success" sx={{ mb: 2 }}>
-                File shared successfully!
-              </Alert>
-              
-              <Box sx={{ p: 2, bgcolor: 'grey.100', borderRadius: 1, mb: 2 }}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Sharing Information:
-                </Typography>
-                <Typography variant="body2" sx={{ wordBreak: 'break-word' }}>
-                  {shareLink.share_url}
-                </Typography>
-              </Box>
+          <TextField
+            fullWidth
+            label="Share with users (usernames or emails)"
+            value={shareEmail}
+            onChange={(e) => setShareEmail(e.target.value)}
+            margin="normal"
+            helperText="Enter usernames or emails separated by commas (e.g., john_doe, jane@example.com)"
+            placeholder="username1, username2, user@email.com"
+            required
+          />
 
-              {shareLink.expires_at && (
-                <Typography variant="body2" color="text.secondary">
-                  Expires: {formatDate(shareLink.expires_at)}
-                </Typography>
-              )}
-            </Box>
-          ) : (
-            <Box>
-              <TextField
-                fullWidth
-                label="Share with users (usernames or emails)"
-                value={shareForm.shared_users}
-                onChange={(e) => setShareForm({ ...shareForm, shared_users: e.target.value })}
-                margin="normal"
-                helperText="Enter usernames or emails separated by commas (e.g., john_doe, jane@example.com)"
-                placeholder="username1, username2, user@email.com"
-                required
-              />
-
-              <TextField
-                fullWidth
-                type="number"
-                label="Expires in days"
-                value={shareForm.expires_in_days}
-                onChange={(e) => setShareForm({ ...shareForm, expires_in_days: parseInt(e.target.value) || 0 })}
-                margin="normal"
-                helperText="Set to 0 for no expiration"
-              />
-
-              <TextField
-                fullWidth
-                type="number"
-                label="Maximum downloads"
-                value={shareForm.max_downloads}
-                onChange={(e) => setShareForm({ ...shareForm, max_downloads: parseInt(e.target.value) || 0 })}
-                margin="normal"
-                helperText="Set to 0 for unlimited downloads"
-              />
-            </Box>
-          )}
+          <TextField
+            fullWidth
+            type="number"
+            label="Expires in days"
+            value={shareExpiry}
+            onChange={(e) => setShareExpiry(parseInt(e.target.value) || 0)}
+            margin="normal"
+            helperText="Set to 0 for no expiration"
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseShareDialog}>
-            {shareLink ? 'Close' : 'Cancel'}
+            Cancel
           </Button>
-          {!shareLink && (
-            <Button
-              onClick={handleCreateShare}
-              variant="contained"
-              disabled={creatingShare || !shareForm.shared_users.trim()}
-              startIcon={creatingShare ? <CircularProgress size={16} /> : <LinkIcon />}
-            >
-              Share with Users
-            </Button>
-          )}
+          <Button
+            onClick={handleCreateShare}
+            variant="contained"
+            disabled={creatingShare || !shareEmail.trim()}
+            startIcon={creatingShare ? <CircularProgress size={16} /> : <LinkIcon />}
+          >
+            Share with Users
+          </Button>
         </DialogActions>
       </Dialog>
 
