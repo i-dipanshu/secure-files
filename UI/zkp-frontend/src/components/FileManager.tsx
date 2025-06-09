@@ -418,7 +418,7 @@ const FileManager: React.FC = () => {
             },
             body: JSON.stringify({
               target_user: user,
-              permission_type: 'READ', // Use uppercase to match backend enum
+              permission_type: 'read', // Use lowercase to match backend enum
               expires_hours: shareForm.expires_in_days * 24, // Convert days to hours
             }),
           });

@@ -308,7 +308,7 @@ const FileSharing: React.FC = () => {
             },
             body: JSON.stringify({
               target_user: user,
-              permission_type: 'READ',
+              permission_type: 'read',
               expires_hours: shareForm.expires_in_hours,
             }),
           });
