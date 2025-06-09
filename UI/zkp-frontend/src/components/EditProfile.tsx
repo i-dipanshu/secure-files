@@ -252,6 +252,22 @@ const EditProfile: React.FC = () => {
                 </Box>
               </Box>
 
+              {/* Member Since Section */}
+              <Box sx={{ mb: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <CalendarToday sx={{ mr: 2, color: 'success.main' }} />
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    Member Since
+                  </Typography>
+                </Box>
+                <Typography variant="body1" sx={{ fontWeight: 500, color: 'text.primary', ml: 4 }}>
+                  {formatDate(profile.created_at)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ ml: 4, mt: 0.5 }}>
+                  You've been part of SecureFiles since this date
+                </Typography>
+              </Box>
+
               <Divider sx={{ my: 3 }} />
 
               {/* Form Fields */}

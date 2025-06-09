@@ -1,8 +1,8 @@
-# ZKP File Sharing - User Guide
+# SecureFiles - User Guide
 
-## 🚀 Welcome to ZKP File Sharing
+## 🚀 Welcome to SecureFiles
 
-ZKP File Sharing is a secure, passwordless authentication system that uses Zero-Knowledge Proofs for login. Instead of traditional passwords, you use cryptographic keys that prove your identity without revealing any secrets.
+SecureFiles is a modern, secure file sharing platform that uses Zero-Knowledge Proof (ZKP) authentication for passwordless login. Instead of traditional passwords, you use cryptographic keys that prove your identity without revealing any secrets.
 
 ---
 
@@ -16,7 +16,7 @@ ZKP File Sharing is a secure, passwordless authentication system that uses Zero-
 ### **Accessing the Application**
 1. Open your web browser
 2. Navigate to the application URL
-3. You'll see the main page with options to **Register** or **Login**
+3. You'll see the modern landing page with **Register** or **Login** options
 
 ---
 
@@ -24,7 +24,7 @@ ZKP File Sharing is a secure, passwordless authentication system that uses Zero-
 
 ### **Step 1: Registration Process**
 
-1. **Click "Register"** on the main page
+1. **Click "Register"** on the landing page
 2. **Enter Your Information**:
    - **Username**: Choose a unique username (3+ characters, letters/numbers/underscores only)
    - **Email**: Enter a valid email address for account recovery
@@ -35,8 +35,8 @@ ZKP File Sharing is a secure, passwordless authentication system that uses Zero-
    - ⚠️ **Important**: This happens only once!
 
 4. **Save Your Keys Securely**:
-   - **Private Key** (Red box): This is your "password" - keep it secret!
-   - **Public Key** (Green box): Safe to share, used for verification
+   - **Private Key**: This is your "password" - keep it secret!
+   - **Public Key**: Safe to share, used for verification
    - **Download Backup**: Click "Download Key Backup" to save a JSON file
    - **Copy Keys**: Use the copy buttons to save keys elsewhere
 
@@ -54,19 +54,19 @@ ZKP File Sharing is a secure, passwordless authentication system that uses Zero-
 ## 🔐 Logging Into Your Account
 
 ### **Method 1: Using Stored Key (Easiest)**
-1. Click **"Login"** on the main page
+1. Click **"Login"** on the landing page
 2. If you previously saved your key, it will auto-fill
 3. Click **"Login with ZKP"**
 4. You're logged in instantly!
 
 ### **Method 2: Manual Key Entry**
-1. Click **"Login"** on the main page
+1. Click **"Login"** on the landing page
 2. **Enter your private key** in the text field
 3. Use the eye icon to show/hide your key while typing
 4. Click **"Login with ZKP"**
 
 ### **Method 3: Import Key File**
-1. Click **"Login"** on the main page
+1. Click **"Login"** on the landing page
 2. Click **"Import Key File"**
 3. Select your downloaded backup JSON file
 4. Your key will be loaded automatically
@@ -82,45 +82,110 @@ ZKP File Sharing is a secure, passwordless authentication system that uses Zero-
 
 ## 🏠 Using the Dashboard
 
-Once logged in, you'll see your personalized dashboard:
+Once logged in, you'll see the modern dashboard with a sleek sidebar navigation:
 
-### **User Profile Section**
-- **Avatar**: Shows your username's first letter
-- **User Info**: Displays your username and email
-- **Status Chips**: 
-  - 🟢 **Active**: Your account is active
-  - 🟡 **Verified/Unverified**: Account verification status
+### **Sidebar Navigation**
+- **SecureFiles Logo**: Click to return to dashboard
+- **Security Indicators**: Green "ZKP Secured" and blue "256-bit Encrypted" chips
+- **Navigation Menu**:
+  - 📊 **Dashboard**: Overview & Stats
+  - 📁 **File Manager**: Upload & Manage Files
+  - 🔗 **File Sharing**: Share & Collaborate
+  - 🔑 **Key Manager**: Cryptographic Keys
+- **User Profile Card**: Click to edit your profile
+- **Sign Out Button**: Securely log out
 
-### **Security Status Panel**
-- **Authentication Method**: Confirms you're using Zero-Knowledge Proof
-- **Private Key Storage**: Shows if your key is stored locally
-- **Session Info**: When your session expires (30 minutes)
-- **Refresh Session**: Extend your session without re-login
+### **Dashboard Overview**
+- **Welcome Message**: "Hello, {username}!" with personalized greeting
+- **Statistics Cards**: 
+  - 📁 **Total Files**: Your uploaded file count
+  - 💾 **Storage Used**: Space consumption with progress bar
+  - 📤 **Shared by Me**: Files you've shared (orange theme)
+  - 📥 **Shared with Me**: Files shared with you (blue theme)
+  - 📅 **This Week**: Recent activity (pink theme)
+
+### **Storage Overview**
+- **Visual Progress Bar**: Shows storage usage percentage
+- **Available Space**: Remaining storage capacity
+- **File Count**: Total number of uploaded files
+
+### **Recent Activity Feed**
+- **Real-time Updates**: Shows actual file uploads, shares, and downloads
+- **File Details**: File names, sizes, types, and timestamps
+- **Activity Types**: Upload, share, download events with appropriate icons
 
 ### **Quick Actions**
-- **Manage Keys**: Access key management tools
-- **Edit Profile**: (Coming soon) Edit your account information
-- **Files**: (Coming soon) File sharing features
-- **Sharing**: (Coming soon) Share files securely
+- **Upload Files**: Direct access to file upload
+- **Share Files**: Quick file sharing access
+- **Manage Keys**: Access cryptographic key tools
+- **Edit Profile**: Update your account information
 
-### **Security Alerts**
-- **Welcome Message**: Explains your security setup
-- **Storage Warnings**: Alerts if no private key is stored locally
-- **Best Practices**: Security tips and recommendations
+---
+
+## 📁 File Management
+
+### **Uploading Files**
+
+1. **Access File Manager**: Click "File Manager" in the sidebar
+2. **Click "Upload File"** button
+3. **Modern Upload Interface**:
+   - **Drag & Drop Zone**: Large, interactive area with visual feedback
+   - **File Selection**: Click the zone to browse for files
+   - **Visual Feedback**: Zone changes color when file is selected
+   - **File Information**: Shows selected file name and size
+   - **Format Support**: All file types supported, 100MB max size
+
+4. **File Details**:
+   - **Display Name**: Human-readable name for your file
+   - **Description**: Optional file description
+   - **Tags**: Comma-separated tags for organization
+   - Enhanced text fields with subtle backgrounds and modern styling
+
+5. **Upload**: Click "Upload File" to complete
+
+### **Managing Your Files**
+- **File Grid**: Modern card-based layout showing all your files
+- **File Actions**: View, Download, Share, Edit, Delete
+- **File Information**: Size, type, upload date, view/download counts
+- **Tags Display**: Visual chips showing file tags
+- **Status Indicators**: Active vs. deleted file status
+- **Search & Filter**: Toggle to show/hide deleted files
+
+### **File Operations**
+- **View**: Open files in browser for preview
+- **Download**: Download files to your device
+- **Share**: Create secure sharing links for other users
+- **Edit**: Update file metadata (name, description, tags)
+- **Delete**: Remove files (with sharing impact warnings)
+
+---
+
+## 🔗 File Sharing
+
+### **Sharing Files with Users**
+1. **Select File**: Click "Share" on any file
+2. **Enter Recipients**: Add usernames or email addresses (comma-separated)
+3. **Set Expiration**: Choose how many days the share should last
+4. **Create Share**: Generate secure access for specified users
+
+### **Accessing Shared Files**
+- **Dashboard Integration**: "Shared with Me" card shows incoming shares
+- **File Manager**: Toggle to view files shared with you
+- **Automatic Access**: Shared files appear in your file list when someone shares with you
 
 ---
 
 ## 🔑 Managing Your Keys
 
 ### **Accessing Key Manager**
-1. From the Dashboard, click **"Manage Keys"**
-2. Or use the navigation menu and select **"Key Manager"**
+1. Click **"Key Manager"** in the sidebar navigation
 
 ### **Current Key Status**
-- **Green Chip**: "Private Key Stored" means your key is saved locally
-- **Yellow Warning**: "Not Stored" means you'll need to enter your key each login
+- **Interactive Chips**: 
+  - Green "Private Key Stored" chip (clickable for security info)
+  - Blue "SECP256k1" chip (clickable for encryption details)
 - **Key Display**: Shows your current private key (hidden by default)
-- **Controls**: Copy, show/hide, and export options
+- **Security Information**: Explains local storage and encryption details
 
 ### **Key Operations**
 
@@ -132,14 +197,14 @@ Once logged in, you'll see your personalized dashboard:
 
 #### **Import Key Pair**
 1. Click **"Import Key Pair"**
-2. Either:
-   - **Upload File**: Click "Choose Key Backup File" and select your JSON backup
-   - **Paste Data**: Copy and paste your key backup JSON
+2. **Modern File Upload**: 
+   - Click "Choose Key Backup File" with enhanced styling
+   - Or paste JSON data in the text area
 3. Click **"Import"**
 4. Your keys are now loaded and stored
 
 #### **Export Current Key**
-1. Click **"Export Backup"** or **"Export Current Key"**
+1. Click **"Export Backup"**
 2. A JSON file downloads automatically
 3. Store this file securely as your backup
 
@@ -147,32 +212,48 @@ Once logged in, you'll see your personalized dashboard:
 ⚠️ **Warning**: You'll need to enter your key manually for future logins
 1. Click **"Delete Key"**
 2. Confirm the deletion
-3. Your key is removed from browser storage (but your account remains active)
+3. Your key is removed from browser storage
 
 ---
 
-## 🛡️ Security Best Practices
+## 👤 Profile Management
 
-### **✅ Do These Things**
-- **Backup your keys** immediately after registration
-- **Store backups securely** (password manager, encrypted storage)
-- **Use HTTPS** - never enter keys on unsecured sites
-- **Keep keys private** - never share with anyone
-- **Log out** when using shared computers
-- **Generate keys on trusted devices** only
+### **Accessing Profile Settings**
+1. Click your **user profile card** at the bottom of the sidebar
+2. Or navigate to "Edit Profile" if available in the menu
 
-### **❌ Never Do These Things**
-- **Share private keys** via email, messaging, or verbally
-- **Store keys in plain text** files on your computer
-- **Use the same keys** for multiple services
-- **Screenshot or photograph** your private keys
-- **Generate keys on public/shared computers**
+### **Profile Information**
+- **Avatar**: Unique emoji generated from your username
+- **Personal Details**: First name, last name, email
+- **Username**: Display only (cannot be changed for security)
+- **Member Since**: Shows when you joined SecureFiles
 
-### **🔐 Storage Recommendations**
-1. **Password Managers**: Store backup files in your password manager
-2. **Encrypted USB Drive**: Physical backup on encrypted storage
-3. **Secure Cloud Storage**: Encrypted cloud storage with strong passwords
-4. **Paper Backup**: Write down key and store in a safe place (for emergency)
+### **Security Status**
+- **Authentication Method**: Zero-Knowledge Proof verification
+- **Encryption Level**: 256-bit SECP256k1 cryptography
+- **Security Alert**: Confirms your private key never leaves your device
+
+---
+
+## 🛡️ Security Features
+
+### **Zero-Knowledge Proof Authentication**
+- **Passwordless**: No traditional passwords to remember or compromise
+- **Private Key Security**: Your key never leaves your device
+- **Cryptographic Proofs**: Mathematical verification without revealing secrets
+- **SECP256k1 Encryption**: Military-grade elliptic curve cryptography
+
+### **File Security**
+- **End-to-End Protection**: Files are secured with your cryptographic signature
+- **Access Control**: Granular sharing permissions
+- **Secure Sharing**: Time-limited access with expiration controls
+- **Privacy**: No access to file contents without proper authorization
+
+### **Modern UI Security Indicators**
+- **Visual Chips**: Green "ZKP Secured" and blue "256-bit Encrypted" status
+- **Security Tooltips**: Click chips for detailed security explanations
+- **Status Indicators**: Clear visual feedback for security status
+- **Interactive Elements**: Hover effects and animations for better UX
 
 ---
 
@@ -187,37 +268,31 @@ Once logged in, you'll see your personalized dashboard:
 
 #### **"Authentication failed"**
 - Verify you're using the correct private key for this account
-- Check if your session expired (30-minute limit)
+- Check if your session expired
 - Try refreshing the page and logging in again
+
+#### **File Upload Issues**
+- Check file size (100MB maximum)
+- Ensure stable internet connection
+- Try refreshing the page if upload stalls
+- Verify you have available storage space
+
+#### **Sharing Problems**
+- Confirm recipient usernames/emails are correct
+- Check that the file hasn't been deleted
+- Verify sharing permissions and expiration dates
+- Ensure recipients have active SecureFiles accounts
 
 #### **"No private key stored"**
 - This is normal if you haven't chosen to store your key locally
 - Enter your private key manually or import your backup file
 - Consider storing your key for convenience (with proper security)
 
-#### **"Key file import failed"**
-- Ensure you're uploading the correct JSON backup file
-- Check that the file isn't corrupted or modified
-- Try copying and pasting the JSON content instead
-
-#### **Can't access account**
-- **Lost private key**: Unfortunately, accounts cannot be recovered without the private key
-- **Forgot username**: Check your email for registration confirmation
-- **Account locked**: Contact support if available
-
-### **Browser-Specific Issues**
-
-#### **Safari**
-- Enable "Allow cross-website tracking" for localhost development
-- Clear browser cache if experiencing issues
-
-#### **Firefox**
-- Check that JavaScript is enabled
-- Disable strict tracking protection for the site
-
-#### **Chrome**
-- Clear site data if experiencing storage issues
-- Check that third-party cookies are allowed
+### **Getting Help**
+- **Interactive Help**: Click security chips for detailed explanations
+- **Visual Feedback**: Modern UI provides clear status indicators
+- **Error Messages**: Descriptive error messages guide troubleshooting
+- **Security Tips**: Built-in help text throughout the interface
 
 ---
 
