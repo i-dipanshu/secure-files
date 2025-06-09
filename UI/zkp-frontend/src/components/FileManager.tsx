@@ -840,55 +840,180 @@ Are you absolutely sure you want to delete this file?`;
 
       {/* Upload Dialog */}
       <Dialog open={uploadDialogOpen} onClose={handleCloseUploadDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>Upload File</DialogTitle>
+        <DialogTitle sx={{ 
+          fontWeight: 600,
+          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+        }}>
+          Upload File
+        </DialogTitle>
         <DialogContent>
           {selectedUploadFile && (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Selected: {selectedUploadFile.name} ({formatFileSize(selectedUploadFile.size)})
+            <Alert 
+              severity="success" 
+              sx={{ 
+                mb: 3,
+                borderRadius: 2,
+                background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.05) 100%)',
+                border: '1px solid rgba(16, 185, 129, 0.2)',
+              }}
+            >
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                Selected: {selectedUploadFile.name} ({formatFileSize(selectedUploadFile.size)})
+              </Typography>
             </Alert>
           )}
           
-          <input
-            type="file"
-            onChange={handleFileSelect}
-            style={{ marginBottom: '16px', width: '100%' }}
-          />
+          {/* Modern File Upload Area */}
+          <Box
+            sx={{
+              border: '2px dashed rgba(99, 102, 241, 0.3)',
+              borderRadius: 3,
+              p: 4,
+              mb: 3,
+              textAlign: 'center',
+              background: selectedUploadFile 
+                ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(5, 150, 105, 0.02) 100%)'
+                : 'linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.02) 100%)',
+              cursor: 'pointer',
+              transition: 'all 0.3s ease-in-out',
+              '&:hover': {
+                borderColor: selectedUploadFile ? 'rgba(16, 185, 129, 0.5)' : 'rgba(99, 102, 241, 0.5)',
+                background: selectedUploadFile 
+                  ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.05) 100%)'
+                  : 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(139, 92, 246, 0.05) 100%)',
+                transform: 'translateY(-2px)',
+              },
+            }}
+            onClick={() => document.getElementById('file-upload-input')?.click()}
+          >
+            <input
+              id="file-upload-input"
+              type="file"
+              onChange={handleFileSelect}
+              style={{ display: 'none' }}
+            />
+            
+            <CloudUpload 
+              sx={{ 
+                fontSize: 48, 
+                color: selectedUploadFile ? 'success.main' : 'primary.main',
+                mb: 2,
+                opacity: 0.8,
+              }} 
+            />
+            
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                fontWeight: 600, 
+                mb: 1,
+                color: selectedUploadFile ? 'success.main' : 'primary.main',
+              }}
+            >
+              {selectedUploadFile ? 'File Selected!' : 'Choose a file to upload'}
+            </Typography>
+            
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {selectedUploadFile 
+                ? 'Click here to select a different file'
+                : 'Click here or drag and drop your file'
+              }
+            </Typography>
+            
+            <Typography variant="caption" color="text.secondary">
+              Supported formats: All file types • Max size: 100MB
+            </Typography>
+          </Box>
 
-          <TextField
-            fullWidth
-            label="Display Name"
-            value={uploadForm.display_name}
-            onChange={(e) => setUploadForm({ ...uploadForm, display_name: e.target.value })}
-            margin="normal"
-          />
-          <TextField
-            fullWidth
-            label="Description"
-            value={uploadForm.description}
-            onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
-            margin="normal"
-            multiline
-            rows={3}
-          />
-          <TextField
-            fullWidth
-            label="Tags (comma-separated)"
-            value={uploadForm.tags}
-            onChange={(e) => setUploadForm({ ...uploadForm, tags: e.target.value })}
-            margin="normal"
-            helperText="Enter tags separated by commas"
-          />
+          {/* Enhanced Form Fields */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              fullWidth
+              label="Display Name"
+              value={uploadForm.display_name}
+              onChange={(e) => setUploadForm({ ...uploadForm, display_name: e.target.value })}
+              variant="outlined"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  background: 'rgba(248, 250, 252, 0.5)',
+                  '&:hover': {
+                    background: 'rgba(248, 250, 252, 0.8)',
+                  },
+                  '&.Mui-focused': {
+                    background: 'rgba(248, 250, 252, 1)',
+                  },
+                },
+              }}
+            />
+            
+            <TextField
+              fullWidth
+              label="Description"
+              value={uploadForm.description}
+              onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
+              multiline
+              rows={3}
+              variant="outlined"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  background: 'rgba(248, 250, 252, 0.5)',
+                  '&:hover': {
+                    background: 'rgba(248, 250, 252, 0.8)',
+                  },
+                  '&.Mui-focused': {
+                    background: 'rgba(248, 250, 252, 1)',
+                  },
+                },
+              }}
+            />
+            
+            <TextField
+              fullWidth
+              label="Tags (comma-separated)"
+              value={uploadForm.tags}
+              onChange={(e) => setUploadForm({ ...uploadForm, tags: e.target.value })}
+              variant="outlined"
+              helperText="Enter tags separated by commas (e.g., document, work, important)"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  background: 'rgba(248, 250, 252, 0.5)',
+                  '&:hover': {
+                    background: 'rgba(248, 250, 252, 0.8)',
+                  },
+                  '&.Mui-focused': {
+                    background: 'rgba(248, 250, 252, 1)',
+                  },
+                },
+                '& .MuiFormHelperText-root': {
+                  fontSize: '0.75rem',
+                  color: 'text.secondary',
+                },
+              }}
+            />
+          </Box>
 
           {uploading && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="body2" color="text.secondary">
+            <Box sx={{ mt: 3, p: 2, borderRadius: 2, background: 'rgba(99, 102, 241, 0.05)' }}>
+              <Typography variant="body2" color="primary.main" sx={{ fontWeight: 500 }}>
                 Upload Progress: {uploading ? 'Uploading...' : 'Upload completed'}
               </Typography>
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseUploadDialog}>
+        <DialogActions sx={{ p: 3, pt: 2 }}>
+          <Button 
+            onClick={handleCloseUploadDialog}
+            sx={{ 
+              borderRadius: 2,
+              px: 3,
+              py: 1,
+            }}
+          >
             Cancel
           </Button>
           <Button
@@ -896,8 +1021,29 @@ Are you absolutely sure you want to delete this file?`;
             variant="contained"
             disabled={uploading || !selectedUploadFile}
             startIcon={uploading ? <CircularProgress size={16} /> : <CloudUpload />}
+            sx={{
+              borderRadius: 2,
+              px: 3,
+              py: 1,
+              background: (uploading || !selectedUploadFile) 
+                ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.3) 0%, rgba(139, 92, 246, 0.2) 100%)'
+                : 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              '&.Mui-disabled': {
+                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.3) 0%, rgba(139, 92, 246, 0.2) 100%)',
+                color: 'rgba(255, 255, 255, 0.6)',
+                '& .MuiButton-startIcon': {
+                  color: 'rgba(255, 255, 255, 0.6)',
+                },
+              },
+              '&:hover:not(.Mui-disabled)': {
+                background: 'linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%)',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 8px 16px -4px rgba(99, 102, 241, 0.4)',
+              },
+              transition: 'all 0.2s ease-in-out',
+            }}
           >
-            Upload
+            Upload File
           </Button>
         </DialogActions>
       </Dialog>
