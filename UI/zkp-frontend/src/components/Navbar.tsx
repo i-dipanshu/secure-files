@@ -78,7 +78,7 @@ const Navbar: React.FC = () => {
           sx={{ flexGrow: 1, fontWeight: 600, cursor: 'pointer' }}
           onClick={() => navigate(auth?.isAuthenticated ? '/dashboard' : '/login')}
         >
-          ZKP File Sharing
+          SecureFiles
         </Typography>
 
         {/* Navigation Links */}
