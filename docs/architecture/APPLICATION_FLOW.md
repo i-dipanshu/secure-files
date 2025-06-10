@@ -630,7 +630,7 @@ flowchart TD
     
     CheckFileAccess --> AccessValid{Access Valid?}
     AccessValid -->|No| AccessError[Return Access Error]
-    AccessValid -->|Yes| VirusScan[Virus Scan (Upload)]
+    AccessValid -->|Yes| VirusScan[Virus Scan for Upload]
     
     VirusScan --> VirusClean{File Clean?}
     VirusClean -->|No| VirusError[Return Virus Error]
