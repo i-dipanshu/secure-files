@@ -188,17 +188,6 @@ The results demonstrate that ZKP authentication represents a **fundamental advan
 
 Based on the latest 2024 research and our comprehensive analysis, ZKP authentication provides the optimal solution for modern authentication needs, addressing both current security challenges and future scalability requirements.
 
-## Generated Analysis Files
-
-- `performance.py` - Main analysis script with research baselines
-- `performance_validation.py` - Statistical validation with 20 iterations  
-- `performance_graphs/` - 5 comprehensive visualizations:
-  - `1_latency_comparison.png` - Authentication speed comparison
-  - `2_security_exposure.png` - Server-side security analysis
-  - `3_network_attack_surface.png` - Network transmission security
-  - `4_privacy_preservation.png` - Privacy metrics radar chart
-  - `5_crypto_strength.png` - Cryptographic security comparison
-
 ---
 
 *Analysis completed on: June 10, 2025*  
