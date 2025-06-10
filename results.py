@@ -143,7 +143,7 @@ class PerformanceAnalyzer:
         self.graph_4_privacy_preservation()
         self.graph_5_crypto_strength()
         
-        print("✅ All graphs generated in 'performance_graphs/' directory")
+        print("✅ All graphs generated in 'docs/results/' directory")
 
     def graph_1_latency_comparison(self):
         """Graph 1: Authentication Latency Comparison"""
@@ -172,7 +172,7 @@ class PerformanceAnalyzer:
         plt.yscale('log')
         plt.grid(axis='y', alpha=0.3)
         plt.tight_layout()
-        plt.savefig('performance_graphs/1_latency_comparison.png', dpi=300, bbox_inches='tight')
+        plt.savefig('docs/results/1_latency_comparison.png', dpi=300, bbox_inches='tight')
         plt.close()
         
         print("📊 Graph 1: Latency Comparison - SAVED")
@@ -219,7 +219,7 @@ class PerformanceAnalyzer:
         plt.legend()
         plt.grid(axis='y', alpha=0.3)
         plt.tight_layout()
-        plt.savefig('performance_graphs/2_security_exposure.png', dpi=300, bbox_inches='tight')
+        plt.savefig('docs/results/2_security_exposure.png', dpi=300, bbox_inches='tight')
         plt.close()
         
         print("🔒 Graph 2: Security Exposure - SAVED")
@@ -266,7 +266,7 @@ class PerformanceAnalyzer:
         plt.legend()
         plt.grid(axis='y', alpha=0.3)
         plt.tight_layout()
-        plt.savefig('performance_graphs/3_network_attack_surface.png', dpi=300, bbox_inches='tight')
+        plt.savefig('docs/results/3_network_attack_surface.png', dpi=300, bbox_inches='tight')
         plt.close()
         
         print("🌐 Graph 3: Network Attack Surface - SAVED")
@@ -313,7 +313,7 @@ class PerformanceAnalyzer:
                  fontsize=16, fontweight='bold', pad=20)
         plt.legend(loc='upper right', bbox_to_anchor=(1.2, 1.0))
         plt.tight_layout()
-        plt.savefig('performance_graphs/4_privacy_preservation.png', dpi=300, bbox_inches='tight')
+        plt.savefig('docs/results/4_privacy_preservation.png', dpi=300, bbox_inches='tight')
         plt.close()
         
         print("🕵️ Graph 4: Privacy Preservation - SAVED")
@@ -350,7 +350,7 @@ class PerformanceAnalyzer:
         plt.grid(axis='y', alpha=0.3)
         plt.xticks(rotation=45, ha='right')
         plt.tight_layout()
-        plt.savefig('performance_graphs/5_crypto_strength.png', dpi=300, bbox_inches='tight')
+        plt.savefig('docs/results/5_crypto_strength.png', dpi=300, bbox_inches='tight')
         plt.close()
         
         print("🔐 Graph 5: Cryptographic Strength - SAVED")
@@ -428,7 +428,7 @@ def main():
     # Print references
     analyzer.print_research_references()
     
-    print(f"\n🎉 Analysis Complete! Check 'performance_graphs/' for all visualizations.")
+    print(f"\n🎉 Analysis Complete! Check 'docs/results/' for all visualizations.")
     return analyzer
 
 if __name__ == "__main__":
