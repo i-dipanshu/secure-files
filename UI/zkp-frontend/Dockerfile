@@ -1,5 +1,5 @@
 # Multi-stage build for React frontend
-FROM node:18-alpine as builder
+FROM node:18-alpine AS builder
 
 # Set working directory
 WORKDIR /app
@@ -21,7 +21,7 @@ ENV GENERATE_SOURCEMAP=false
 RUN npm run build
 
 # Production stage with nginx
-FROM nginx:alpine as production
+FROM nginx:alpine AS production
 
 # Remove default nginx config
 RUN rm /etc/nginx/conf.d/default.conf
