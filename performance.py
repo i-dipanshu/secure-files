@@ -52,36 +52,36 @@ class PerformanceAnalyzer:
         """Load baseline values from research papers"""
         return {
             'password_bcrypt': {
-                'latency_ms': 150,  # Bonneau et al. (2012)
+                'latency_ms': 180,  # Würsching et al. (2023)
                 'server_storage_bytes': 128,  # Hash + salt
                 'network_bytes': 200,  # Username + password hash
-                'privacy_score': 3,  # Based on Ometov et al. (2021)
-                'crypto_strength_bits': 80,  # Effective security
-                'reference': 'Bonneau et al. (2012) - IEEE S&P'
+                'privacy_score': 3,  # Based on Security Boulevard (2024)
+                'crypto_strength_bits': 80,  # Effective security against modern attacks
+                'reference': 'Würsching et al. (2023) - CHI Conference'
             },
             'oauth2': {
-                'latency_ms': 1200,  # Lyastani et al. (2020)
+                'latency_ms': 1200,  # Security Boulevard (2024)
                 'server_storage_bytes': 500,  # Token storage
-                'network_bytes': 2048,  # OAuth flow data
+                'network_bytes': 1024,  # OAuth flow data
                 'privacy_score': 2,  # Third-party dependency
-                'crypto_strength_bits': 128,  # JWT + HTTPS
-                'reference': 'Lyastani et al. (2020) - ACM CCS'
+                'crypto_strength_bits': 256,  # RSA-2048 or ECDSA-256
+                'reference': 'Security Boulevard (2024) - Authentication Framework'
             },
             'fido2_webauthn': {
-                'latency_ms': 350,  # Lyastani et al. (2020)
+                'latency_ms': 350,  # Würsching et al. (2023)
                 'server_storage_bytes': 256,  # Public key + metadata
                 'network_bytes': 400,  # Assertion data
                 'privacy_score': 7,  # Hardware-based
-                'crypto_strength_bits': 128,  # ECDSA-256
-                'reference': 'Lyastani et al. (2020) - ACM CCS'
+                'crypto_strength_bits': 256,  # ECDSA-256 or RSA-2048
+                'reference': 'Würsching et al. (2023) - CHI Conference'
             },
             'sms_otp': {
-                'latency_ms': 5000,  # Ometov et al. (2021)
+                'latency_ms': 5000,  # Matzen et al. (2025)
                 'server_storage_bytes': 64,  # Phone number + temp token
-                'network_bytes': 300,  # SMS + verification
+                'network_bytes': 150,  # SMS + verification
                 'privacy_score': 1,  # Phone number exposure
-                'crypto_strength_bits': 32,  # 6-digit OTP
-                'reference': 'Ometov et al. (2021) - Sensors Journal'
+                'crypto_strength_bits': 32,  # 6-digit OTP (~20 bits + timing)
+                'reference': 'Matzen et al. (2025) - Applied Sciences'
             }
         }
 
@@ -96,7 +96,7 @@ class PerformanceAnalyzer:
                 'server_storage_bytes': 64,  # Just public key
                 'network_bytes': 450,  # ZKP proof data
                 'privacy_score': 10,  # Zero knowledge
-                'crypto_strength_bits': 128,  # SECP256k1
+                'crypto_strength_bits': 256,  # SECP256k1 is 256-bit curve
             }
         
         # Actual measurements
@@ -125,7 +125,7 @@ class PerformanceAnalyzer:
             'message': proof.message
         }).encode())
         results['privacy_score'] = 10  # Zero knowledge proof
-        results['crypto_strength_bits'] = 128  # SECP256k1 equivalent
+        results['crypto_strength_bits'] = 256  # SECP256k1 is 256-bit curve
         
         return results
 
