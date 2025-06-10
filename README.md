@@ -119,6 +119,7 @@ Our documentation is organized into several categories:
 - **[Authentication Flow](docs/architecture/AUTHENTICATION_FLOW.md)** - ZKP authentication system
 - **[ZKP Implementation](docs/architecture/ZKP_IMPLEMENTATION.md)** - Zero-Knowledge Proof details
 - **[ZKP Comparison Analysis](docs/architecture/ZKP_COMPARISON_ANALYSIS.md)** - Comparison with other ZKP methods and research
+- **[Application Flow](docs/architecture/APPLICATION_FLOW.md)** - Complete user journey and system flow diagrams
 
 ### 🚀 Deployment
 - **[Deployment Guide](docs/deployment/DEPLOYMENT.md)** - Production deployment instructions
