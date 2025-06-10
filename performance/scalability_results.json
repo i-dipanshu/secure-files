@@ -1,0 +1,49 @@
+{
+  "benchmark_info": {
+    "timestamp": 1749547009.905796,
+    "base_url": "http://localhost:8000",
+    "system_info": {
+      "cpu_count": 10,
+      "memory_gb": 16,
+      "platform": "posix"
+    }
+  },
+  "results": [
+    {
+      "test_name": "Concurrent Authentication",
+      "concurrent_users": 50,
+      "total_requests": 250,
+      "duration_seconds": 0.013752083003055304,
+      "requests_per_second": 18179.064214814396,
+      "avg_response_time_ms": 1.29353367513977,
+      "error_rate_percent": 0.0,
+      "peak_cpu_percent": 8.8,
+      "peak_memory_mb": 5778.046875,
+      "success_rate_percent": 100.0
+    },
+    {
+      "test_name": "Concurrent File Operations",
+      "concurrent_users": 25,
+      "total_requests": 75,
+      "duration_seconds": 0.039101333008147776,
+      "requests_per_second": 1918.0931756053383,
+      "avg_response_time_ms": 12.141240544927618,
+      "error_rate_percent": 0.0,
+      "peak_cpu_percent": 11.0,
+      "peak_memory_mb": 5758.640625,
+      "success_rate_percent": 100.0
+    },
+    {
+      "test_name": "Mixed Workload",
+      "concurrent_users": 30,
+      "total_requests": 300,
+      "duration_seconds": 0.09496895800111815,
+      "requests_per_second": 3158.926941121833,
+      "avg_response_time_ms": 5.918879023423263,
+      "error_rate_percent": 0.0,
+      "peak_cpu_percent": 14.2,
+      "peak_memory_mb": 5742.125,
+      "success_rate_percent": 100.0
+    }
+  ]
+}

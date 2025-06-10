@@ -1,0 +1,46 @@
+{
+  "benchmark_info": {
+    "iterations": 50,
+    "timestamp": 1749547056.031026,
+    "python_version": "3.11.11 (main, Dec  3 2024, 17:20:40) [Clang 16.0.0 (clang-1600.0.26.4)]",
+    "system": "Darwin 24.3.0"
+  },
+  "results": [
+    {
+      "operation": "Proof Generation",
+      "mean_time_ms": 2.518959161825478,
+      "median_time_ms": 2.5220210081897676,
+      "std_dev_ms": 0.054291520994022874,
+      "min_time_ms": 2.252334001241252,
+      "max_time_ms": 2.5990409776568413,
+      "throughput_ops_per_sec": 396989.3657487105,
+      "memory_usage_mb": 0.0,
+      "proof_size_bytes": 64,
+      "sample_size": 50
+    },
+    {
+      "operation": "Proof Verification",
+      "mean_time_ms": 1.2629225995624438,
+      "median_time_ms": 1.2620630004676059,
+      "std_dev_ms": 0.0215937345659618,
+      "min_time_ms": 1.1331670102663338,
+      "max_time_ms": 1.309540995862335,
+      "throughput_ops_per_sec": 791814.1621239997,
+      "memory_usage_mb": 0.0,
+      "proof_size_bytes": 64,
+      "sample_size": 50
+    },
+    {
+      "operation": "Concurrent Authentication",
+      "mean_time_ms": 3.7360825430369005,
+      "median_time_ms": 3.7744375003967434,
+      "std_dev_ms": 0.13885513612221945,
+      "min_time_ms": 3.3121669839601964,
+      "max_time_ms": 3.9733749872539192,
+      "throughput_ops_per_sec": 2333.1687518774224,
+      "memory_usage_mb": 0.015625,
+      "proof_size_bytes": 64,
+      "sample_size": 50
+    }
+  ]
+}
