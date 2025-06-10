@@ -88,7 +88,7 @@ echo "127.0.0.1 minio" | sudo tee -a /etc/hosts
 - FastAPI (Python 3.11+)
 - PostgreSQL with AsyncPG
 - MinIO object storage
-- Redis for caching
+- Redis for caching (will be used in future development)
 - JWT authentication
 - Zero-Knowledge Proof verification
 
@@ -131,78 +131,14 @@ Our documentation is organized into several categories:
 - Docker configuration and scaling
 - Environment setup and security
 
-### 📖 API Documentation
-- **[Complete API Documentation](docs/api/API_DOCUMENTATION.md)** - Full API reference
-- **[API Contract](docs/api/API_CONTRACT.md)** - API specifications and examples
-
 ### 🔧 Troubleshooting
 - **[Bug Fixes](docs/troubleshooting/BUG_FIXES_COMPLETE.md)** - Known issues and solutions
 - **[Quick Reference](docs/troubleshooting/QUICK_REFERENCE.md)** - Common commands and fixes
 - **[Sharing Fixes](docs/troubleshooting/SHARING_FIXES_SUMMARY.md)** - File sharing troubleshooting
 
-## 🛠️ Development
-
-### Local Development Setup
-
-```bash
-# Backend setup
-python -m venv venv
-source venv/bin/activate  # or venv\Scripts\activate on Windows
-pip install -r requirements.txt
-
-# Frontend setup
-cd UI/zkp-frontend
-npm install
-npm start
-```
-
-### Running Tests
-
-```bash
-# Backend tests
-pytest --cov=app
-
-# Frontend tests
-cd UI/zkp-frontend
-npm test
-```
-
-### Code Style
-
-```bash
-# Python formatting
-black app/
-isort app/
-flake8 app/
-
-# TypeScript/React formatting
-cd UI/zkp-frontend
-npm run lint
-npm run format
-```
-
-**📖 See [Development Guide](docs/development/DEVELOPMENT_GUIDE.md) for detailed instructions**
 
 ## 🚀 Deployment
 
-### Docker Production Deployment
-
-```bash
-# Production deployment
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-```
-
-### Manual Deployment
-
-```bash
-# Backend
-uvicorn app.main:app --host 0.0.0.0 --port 8000
-
-# Frontend
-cd UI/zkp-frontend
-npm run build
-serve -s build
-```
 
 ### Environment Variables
 
