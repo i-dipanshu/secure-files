@@ -35,14 +35,18 @@ A secure file-sharing application using Zero-Knowledge Proof (ZKP) authenticatio
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd college-project
+git clone git@github.com:i-dipanshu/secure-files.git
+cd secure-files
 
 # Start all services
 docker-compose up -d
 
 # Check service status
 docker-compose ps
+
+# Update /etc/hosts to proxy minio hostname to localhost
+echo "127.0.0.1 minio" | sudo tee -a /etc/hosts
+
 ```
 
 ### Access Points
