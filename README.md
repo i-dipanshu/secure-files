@@ -38,7 +38,16 @@ A secure file-sharing application using Zero-Knowledge Proof (ZKP) authenticatio
 git clone git@github.com:i-dipanshu/secure-files.git
 cd secure-files
 
-# Start all services
+# Start database and other infrastructure services first
+docker-compose up -d postgres minio redis
+
+# Wait for database to be ready (about 10-15 seconds)
+sleep 15
+
+# Run database migrations
+alembic upgrade head
+
+# Start all remaining services
 docker-compose up -d
 
 # Check service status
@@ -62,6 +71,76 @@ echo "127.0.0.1 minio" | sudo tee -a /etc/hosts
 2. Register a new account using the ZKP authentication
 3. Upload and share files securely
 4. Explore the API documentation at http://localhost:8000/docs
+
+## 🗄️ Database Setup & Migrations
+
+### Initial Setup (Required)
+
+The application uses Alembic for database migrations. **You must run migrations before starting the application for the first time.**
+
+#### Option 1: Automatic Setup (Recommended)
+Follow the [Launch Application](#launch-application) steps above, which include migration commands.
+
+#### Option 2: Manual Setup
+```bash
+# 1. Start only the database service
+docker-compose up -d postgres
+
+# 2. Wait for PostgreSQL to be ready
+sleep 15
+
+# 3. Install Python dependencies (if not using Docker)
+pip install -r requirements.txt
+
+# 4. Run database migrations
+alembic upgrade head
+
+# 5. Start remaining services
+docker-compose up -d
+```
+
+### Migration Commands
+
+```bash
+# Check current migration status
+alembic current
+
+# View migration history
+alembic history
+
+# Apply all pending migrations
+alembic upgrade head
+
+# Create new migration (after model changes)
+alembic revision --autogenerate -m "Description of changes"
+
+# Rollback one migration
+alembic downgrade -1
+```
+
+### Migration Files Location
+- **Migration files**: `alembic/versions/`
+- **Current migrations**:
+  - `fd685cef1454` - Initial users table
+  - `8f38843332af` - File and permission models
+
+### Troubleshooting Migrations
+
+**Database connection error:**
+```bash
+# Check if PostgreSQL is running
+docker-compose ps postgres
+
+# Check PostgreSQL logs
+docker-compose logs postgres
+```
+
+**Migration conflicts:**
+```bash
+# Reset to base and reapply
+alembic downgrade base
+alembic upgrade head
+```
 
 ## 🏗️ Architecture
 
@@ -154,6 +233,36 @@ CORS_ORIGINS=["http://localhost:3000"]
 ```
 
 **📖 See [Deployment Guide](docs/deployment/DEPLOYMENT.md) for complete instructions**
+
+### Development Setup
+
+When developing locally or contributing to the project:
+
+```bash
+# 1. Clone and setup
+git clone git@github.com:i-dipanshu/secure-files.git
+cd secure-files
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Setup environment variables
+cp .env.example .env  # Edit as needed
+
+# 4. Start database
+docker-compose up -d postgres
+
+# 5. Run migrations (IMPORTANT)
+alembic upgrade head
+
+# 6. Start development server
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+**⚠️ Important**: Always run `alembic upgrade head` after:
+- Cloning the repository
+- Pulling changes that include new migrations
+- Before starting the application
 
 ## 📖 API Reference
 
